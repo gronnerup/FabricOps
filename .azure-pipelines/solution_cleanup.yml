@@ -42,7 +42,7 @@ stages:
             workingDirectory: '$(Build.SourcesDirectory)/automation/resources'
 
           - script: python -u automation/scripts/fabric_setup.py --environment ${{ env }} --action delete
-            displayName: 'Run Fabric solution setup script'
+            displayName: 'Run Fabric solution cleanup script'
             env:
               TENANT_ID: $(SPN_TENANT_ID)
               CLIENT_ID: $(SPN_CLIENT_ID)

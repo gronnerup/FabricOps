@@ -65,7 +65,7 @@ jobs:
         packageType: 'sdk'
         version: '8.0.x'
 
-    - script: dotnet build "solution/engineering/Metadata.SQLDatabase/Metadata.sqlproj" /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
+    - script: dotnet build "solution/core/Metadata.SQLDatabase/Metadata.sqlproj" /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
       displayName: 'Build Metadata .dacpac'
 
     - task: PublishBuildArtifacts@1

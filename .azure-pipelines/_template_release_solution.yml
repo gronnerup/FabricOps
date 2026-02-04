@@ -60,7 +60,7 @@ jobs:
         script: |
           python automation/scripts/generate_connection_string.py \
             --environment "${{ parameters.environment }}" \
-            --layer "Engineering" \
+            --layer "Core" \
             --database "Metadata" \
             --output_file conn.txt
 
@@ -88,6 +88,6 @@ jobs:
           echo "$(connection_string)"
 
           ./sqlpackage/sqlpackage /Action:Publish \
-            /SourceFile:"$(Pipeline.Workspace)/solution/engineering/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac" \
+            /SourceFile:"$(Pipeline.Workspace)/solution/core/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac" \
             /TargetConnectionString:"$(connection_string)" \
             /p:DropObjectsNotInSource=false /p:AllowIncompatiblePlatform=True /p:ExcludeObjectType=DatabaseRoles /p:ExcludeObjectType=Users
