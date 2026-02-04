@@ -2,8 +2,7 @@
   <img src="FabricOps_250.png" alt="FabricOps Logo">
 </p>
 
-# FabricOps
-## Microsoft Fabric DevOps Automation Platform
+## FabricOps - The Microsoft Fabric DevOps Automation Platform
 
 A comprehensive Microsoft Fabric automation platform demonstrating enterprise-grade DevOps practices, infrastructure as code (IaC), CI/CD workflows, and modern ways-of-working for data platform delivery.
 
