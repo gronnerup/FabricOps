@@ -1,0 +1,6 @@
+requests
+azure-identity
+ruamel.yaml
+fabric-cicd
+ms-fabric-cli==1.1.0
+PyNaCl

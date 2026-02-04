@@ -1,0 +1,5 @@
+find_replace:
+  - find_value: abc123456789      # Sample
+    replace_value:
+        tst: abc123456789
+        prd: abc123456789

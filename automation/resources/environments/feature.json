@@ -1,0 +1,70 @@
+{
+    "feature_name" : "*{feature_name} ({layer_name})",
+    "capacity_name": "YOUR_CAPACITY_NAME_HERE",
+    // Modify to use either GitHub or Azure DevOps keeping only the relevant get_settings section
+    "git_settings" :
+    {
+        "gitProviderDetails": {
+            "gitProviderType": "GitHub",
+            "ownerName": "YOUR_GITHUB_ORG_HERE",
+            "repositoryName": "YOUR_GITHUB_REPO_HERE"
+        },
+        "myGitCredentials": {
+            "source": "ConfiguredConnection",
+            "connection_name": "YOUR_GITHUB_CONNECTION_NAME_HERE"
+        }
+    },
+    "git_settings" :
+    {
+        "gitProviderDetails": {
+            "gitProviderType": "AzureDevOps",
+            "organizationName": "YOUR_AZURE_DEVOPS_ORG_HERE",
+            "projectName": "YOUR_AZURE_DEVOPS_PROJECT_HERE",
+            "repositoryName": "YOUR_AZURE_DEVOPS_REPO_HERE"
+        },
+        "myGitCredentials" : {
+            "source": "ConfiguredConnection",
+            "connection_name" : "YOUR_AZURE_DEVOPS_CONNECTION_NAME_HERE"
+        }
+    },
+    "permissions": {
+        "admin": [
+            {"type": "Group", "id": "00000000-0000-0000-0000-000000000000"}
+        ]
+    },
+    "layers" : {
+        "Prepare": { 
+            "spark_settings": {
+                "pool": {
+                    "starterPool":{
+                        "maxExecutors": 1,
+                        "maxNodeCount": 1
+                    }
+                }
+            },
+            "git_directoryName": "solution/prepare",
+            "git_synchronize_on_commit": true
+        },
+        "Ingest": { 
+            "spark_settings": {
+                "pool": {
+                    "starterPool":{
+                        "maxExecutors": 1,
+                        "maxNodeCount": 1
+                    }
+                }
+            },
+            "git_directoryName": "solution/prepare",
+            "git_synchronize_on_commit": true
+        },
+        "Orchestrate": { 
+            "git_directoryName": "solution/orchestrate",
+            "git_synchronize_on_commit": true
+        },
+        "Model": {
+            "git_directoryName": "solution/model",
+            "git_synchronize_on_commit": false,
+            "git_disconnect_after_initialize": true
+        }
+    }
+}

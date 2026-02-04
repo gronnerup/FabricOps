@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Utils - Maintain Workspace Icons",
+    "description": "Utility notebook for automating the maintenance of workspace icons.\nNote: This notebook must run under the context of a User Principal. Service Principal/Managed Identity is not supported."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "2dacd8c7-83f6-43c8-bbd9-e03819d9ce22"
+  }
+}

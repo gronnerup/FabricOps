@@ -1,0 +1,5 @@
+semantic_model_sqlendpoint_binding:
+  - lakehouse_name: Curated
+    lakehouse_ws_layer: Store
+    semantic_model_layer: Model
+    semantic_models: [SpaceParts, SpacePartsSaveToFolder, SpacePartsBim]

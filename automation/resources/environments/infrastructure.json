@@ -1,0 +1,55 @@
+{
+    "name": "YOUR_SOLUTION_NAME - {layer} [{environment}]",
+    "generic": {
+        "capacity_name": "YOUR_CAPACITY_NAME_HERE",
+        "permissions": {
+            "Admin": [
+                {"type": "Group", "id": "00000000-0000-0000-0000-000000000000"}
+            ]
+        },
+        "fabric_connections":  [
+            {
+                "name": "YOUR_SOLUTION_NAME-SemanticModel",
+		        "type": "PowerBIDatasets",
+                "auth_type": "ServicePrincipal"
+            }
+        ]
+    },
+    "layers" : 
+    {
+        "Core": { 
+            "items": {
+                "SQLDatabase": [
+                    {
+                        "item_name": "Metadata",
+                        "connection_name": "YOUR_SOLUTION_NAME-MetadataDB [{environment}]"
+                    }
+                ]
+            }
+        },
+        "Store": { 
+            "items": {
+                "Lakehouse": [
+                    {
+                        "item_name": "Curated",
+                        "connection_name": "YOUR_SOLUTION_NAME-Curated [{environment}]"
+                    }
+                ]
+            }
+        },
+        "Ingest": { },
+        "Prepare": { },
+        "Model": {
+            "permissions": {
+                "Admin": [
+                    {"type": "WorkspaceIdentity", "name": "YOUR_SOLUTION_NAME - Orchestrate [{environment}]"}
+                ]
+            }
+        },
+        "Present": { },
+        "Orchestrate": { 
+            "create_workspace_identity": true
+        }
+    }
+}
+

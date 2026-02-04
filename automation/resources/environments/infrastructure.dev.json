@@ -1,0 +1,80 @@
+{
+    "generic": {
+        "merge_type": 2,
+        "is_primary" : true,
+        "environment_name": "dev",
+        "permissions": {
+            "Admin": [
+                {"type": "Group", "id": "00000000-0000-0000-0000-000000000000"}
+            ]
+        },
+        // Modify to use either GitHub or Azure DevOps keeping only the relevant get_settings section
+        "git_settings" :
+        {
+            "gitProviderDetails": {
+                "gitProviderType": "GitHub",
+                "ownerName": "YOUR_GITHUB_ORG_HERE",
+                "repositoryName": "YOUR_GITHUB_REPO_HERE",
+                "branchName": "main"
+            },
+            "myGitCredentials" : {
+                "source": "ConfiguredConnection",
+                "connection_name" : "YOUR_GITHUB_CONNECTION_NAME_HERE"
+            }
+        },
+        "git_settings" :
+        {
+            "gitProviderDetails": {
+                "gitProviderType": "AzureDevOps",
+                "organizationName": "YOUR_AZURE_DEVOPS_ORG_HERE",
+                "projectName": "YOUR_AZURE_DEVOPS_PROJECT_HERE",
+                "repositoryName": "YOUR_AZURE_DEVOPS_REPO_HERE"
+            },
+            "myGitCredentials" : {
+                "source": "ConfiguredConnection",
+                "connection_name" : "YOUR_AZURE_DEVOPS_CONNECTION_NAME_HERE"
+            }
+        }
+    },
+    "layers" : 
+    {
+        "merge_type": 2,
+        "Core": { 
+            "items": {
+                "SQLDatabase": [
+                    {
+                        "item_name": "Metadata",
+                        "skip_item_creation": true
+                    }
+                ]
+            },
+            "git_directoryName": "solution/core"
+        },
+        "Store": { 
+            "items": {
+                "Lakehouse": [
+                    {
+                        "item_name": "Curated",
+                        "skip_item_creation": true
+                    }
+                ]
+            },
+            "git_directoryName": "solution/store"
+        },
+        "Prepare": { 
+            "git_directoryName": "solution/prepare"
+        },
+        "Ingest": { 
+            "git_directoryName": "solution/ingest"
+        },
+        "Orchestrate": { 
+            "git_directoryName": "solution/orchestrate"
+        },
+        "Model": { 
+            "git_directoryName": "solution/model"
+        },
+        "Present": { 
+            "git_directoryName": "solution/present"
+        }
+    }
+}
