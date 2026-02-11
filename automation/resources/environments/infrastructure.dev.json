@@ -28,7 +28,8 @@
                 "gitProviderType": "AzureDevOps",
                 "organizationName": "YOUR_AZURE_DEVOPS_ORG_HERE",
                 "projectName": "YOUR_AZURE_DEVOPS_PROJECT_HERE",
-                "repositoryName": "YOUR_AZURE_DEVOPS_REPO_HERE"
+                "repositoryName": "YOUR_AZURE_DEVOPS_REPO_HERE",
+                "branchName": "main"
             },
             "myGitCredentials" : {
                 "source": "ConfiguredConnection",
@@ -77,4 +78,5 @@
             "git_directoryName": "solution/present"
         }
     }
+
 }
