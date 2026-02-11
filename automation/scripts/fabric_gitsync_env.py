@@ -37,7 +37,7 @@ if env_definition:
 
             if layer_definition.get("git_synchronize_on_commit", True) and not layer_definition.get("git_disconnect_after_initialize", False):
                 misc.print_info(f"Synchronizing workspace {workspace_name_escaped} with latest changes from Git repo...", bold=True, end="")
-                workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id").strip()
+                workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
 
                 git_status = fabcli.get_git_status(workspace_id)
                 if git_status is None:

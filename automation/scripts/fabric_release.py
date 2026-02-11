@@ -71,7 +71,7 @@ if env_definition:
             workspace_name = solution_name.format(layer=layer, environment=environment)
             workspace_name_escaped = workspace_name.replace("/", "\\/")
 
-            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id").strip()
+            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
 
             misc.print_subheader(f"Running release to workspace {workspace_name}!")
 
@@ -136,7 +136,7 @@ if env_definition:
 
                         # Now bind all semantic models to this lakehouse
                         for semantic_model_name in semantic_models:
-                            semantic_model_id = fabcli.run_command(f"get '/{workspace_name}.Workspace/{semantic_model_name}.SemanticModel' -q id").strip()
+                            semantic_model_id = fabcli.run_command(f"get '/{workspace_name}.Workspace/{semantic_model_name}.SemanticModel' -q id -f").strip()
                             if not semantic_model_id:
                                 misc.print_warning(f"Semantic model '{semantic_model_name}' not found in workspace {workspace_name}. Skip binding.")
                                 continue

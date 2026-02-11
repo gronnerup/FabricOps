@@ -60,7 +60,7 @@ if build_parameter_file:
             workspace_name_escaped = workspace_name.replace("/", "\\/")
             
             misc.print_info(f"  Scanning workspace: {workspace_name}...", bold=False, end="")
-            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id").strip()
+            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
             
             if misc.is_guid(workspace_id):
                 print(" ✔")

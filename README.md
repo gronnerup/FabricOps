@@ -86,6 +86,14 @@ To use FabricOps in your environment, you'll need:
   - Appropriate Fabric workspace permissions
   - Project Administrator role (Azure DevOps) or equivalent GitHub permissions
 
+### Fabric CLI Version Requirement
+**Fabric CLI version 1.0.0+ is required**
+
+Version 1.0.0 introduced the `-f`/`--force` flag in the `get` command to suppress warnings on sensitivity labels. The release notes state:
+> "Added a confirmation prompt in get to acknowledge that exported items do not include sensitivity labels; use -f to skip."
+
+Versions <1.0.0 do not support the `-f` switch and will cause automation scripts to fail.
+
 ## Project Structure
 
 ```

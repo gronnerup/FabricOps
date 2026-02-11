@@ -33,6 +33,7 @@ action = args.action.lower()
 
 # Authenticate
 fabcli.run_command("config set encryption_fallback_enabled true")
+fabcli.run_command("config set folder_listing_enabled true")
 fabcli.run_command(f"auth login -u {client_id} -p {client_secret} --tenant {tenant_id}")
 
 # Load JSON environment files (main and environment specific) and merge
@@ -145,7 +146,7 @@ if action == "create":
             else:
                 misc.print_warning(f" ⚠ Already exists", bold=True)
 
-            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id").strip()
+            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
                 
             # Update layer_definition
             layer_definition["workspace_id"] = workspace_id
@@ -180,7 +181,7 @@ if action == "create":
                 print_item_header = True
                 for item_type, items in layer_definition.get("items").items():
                     for item in items:
-                        if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase"}:
+                        if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase", "Warehouse"}:
                             has_item_connections = True
 
                         if not item.get("skip_item_creation", False):
@@ -188,11 +189,12 @@ if action == "create":
                                 print(f"  • Creating workspace items:") 
                                 print_item_header = False
 
-                            misc.print_info(f"    ◦ {item_type}: {item.get("item_name")}...", end="")
+                            item_folder = f'{item.get("item_folder")}/' if item.get("item_folder") else ""
+                            misc.print_info(f"    ◦ {item_type}: {item_folder}{item.get("item_name")}...", end="")
 
-                            if not fabcli.item_exists(f'{workspace_name_escaped}.Workspace/{item.get("item_name")}.{item_type}'):    
-                                fabcli.run_command(f"create '{workspace_name_escaped}.Workspace/{item.get("item_name")}.{item_type}'")
-                                item["item_metadata"] = fabcli.get_item(f"/{workspace_name_escaped}.Workspace/{item.get('item_name')}.{item_type}", retry_count=2)
+                            if not fabcli.item_exists(f'{workspace_name_escaped}.Workspace/{item_folder}{item.get("item_name")}.{item_type}'):    
+                                fabcli.run_command(f"create '{workspace_name_escaped}.Workspace/{item_folder}{item.get("item_name")}.{item_type}'")
+                                item["item_metadata"] = fabcli.get_item(f"/{workspace_name_escaped}.Workspace/{item_folder}{item.get('item_name')}.{item_type}", retry_count=2)
                                 
                                 if item_type in {"Lakehouse"}: 
                                     # Wait until SQL endpoint provisioning completes; treat missing metadata as still provisioning
@@ -209,7 +211,7 @@ if action == "create":
                                             break
                                         print(".", end="")
                                         time.sleep(2)
-                                        item["item_metadata"] = fabcli.get_item(f"/{workspace_name_escaped}.Workspace/{item.get('item_name')}.{item_type}")
+                                        item["item_metadata"] = fabcli.get_item(f"/{workspace_name_escaped}.Workspace/{item_folder}{item.get('item_name')}.{item_type}")
 
                                 if item["item_metadata"]:                           
                                     misc.print_success(" ✔")
@@ -269,7 +271,7 @@ if action == "create":
             for workspace_name, workspace_identity in workspace_identity_acl.items():
                 misc.print_info(f"  • Assigning workspace identity {workspace_identity} to {workspace_name}...", end="")   
                 try:             
-                    identity_id = fabcli.run_command(f"get {workspace_identity}.Workspace -q workspaceIdentity.servicePrincipalId").strip()
+                    identity_id = fabcli.run_command(f"get {workspace_identity}.Workspace -q workspaceIdentity.servicePrincipalId -f").strip()
                     fabcli.run_command(f"acl set {workspace_name}.Workspace -I {identity_id} -R admin -f") 
                     misc.print_success(" ✔")
                 except Exception as e:
@@ -290,7 +292,7 @@ if action == "create":
                     for item_type, items in layer_definition.get("items").items():
                         for item in items:
 
-                            if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase"}:
+                            if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase", "Warehouse"}:
                                 connection_name = item.get("connection_name").format(layer=layer, environment=environment)
                                 item["item_metadata"] = fabcli.get_item(f"/{workspace_name_escaped}.Workspace/{item.get('item_name')}.{item_type}")
                                 #print(f"/{workspace_name_escaped}.Workspace/{item.get('item_name')}.{item_type}")
@@ -298,12 +300,12 @@ if action == "create":
 
                                 if item["item_metadata"]:
                                     server = (
-                                        item.get("item_metadata").get("properties").get("sqlEndpointProperties").get("connectionString") if item_type == "Lakehouse" else
-                                        item.get("item_metadata").get("properties").get("serverFqdn") 
+                                        item.get("item_metadata").get("properties").get("serverFqdn") if item_type == "SQLDatabase" else 
+                                        item.get("item_metadata").get("properties").get("connectionString")      
                                     )
 
                                     database = (
-                                        item.get("item_name") if item_type == "Lakehouse" else
+                                        item.get("item_name") if item_type in ("Lakehouse","Warehouse") else
                                         item.get("item_metadata").get("properties").get("databaseName") 
                                     )
 
@@ -383,7 +385,7 @@ elif action == "delete":
         if layer_definition.get("items"):
             for item_type, items in layer_definition.get("items").items():
                 for item in items:    
-                    if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase"}:
+                    if item.get("connection_name") and item_type in {"Lakehouse", "SQLDatabase", "Warehouse"}:
                         connection_name = item.get("connection_name").format(layer=layer, environment=environment)
                         misc.print_info(f"  • Deleting connection '{connection_name}'... ", bold=False, end="")
                         if fabcli.run_command(f"exists .connections/{connection_name}.Connection").replace("*", "").strip().lower() == "true":

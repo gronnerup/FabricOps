@@ -34,7 +34,7 @@ def run_command(command: str) -> str:
 def get_item(item_path: str, retry_count: int = 0):
     for attempt in range(retry_count + 1):
         try:
-            cli_response = run_command(f"get {item_path} -q .")
+            cli_response = run_command(f"get {item_path} -q . -f")
             return json.loads(cli_response)
         except Exception as e:
             if attempt < retry_count:
@@ -46,7 +46,7 @@ def get_item(item_path: str, retry_count: int = 0):
 def get_item_id(item_path: str, retry_count: int = 0):
     for attempt in range(retry_count + 1):
         try:
-            cli_response = run_command(f"get {item_path} -q id")
+            cli_response = run_command(f"get {item_path} -q id -f")
             return cli_response.strip()
         except Exception as e:
             if attempt < retry_count:
@@ -61,7 +61,7 @@ def get_connection(connection_identifier):
         response = run_command(f"api -X get {connection_url} ")
         return json.loads(response)
     else:
-        return json.loads(run_command(f"get .connections/{connection_identifier}.Connection -q ."))
+        return json.loads(run_command(f"get .connections/{connection_identifier}.Connection -q . -f"))
 
 
 def connection_exists(connection_identifier):
@@ -207,6 +207,8 @@ def create_fabric_connection(connection_name, connection_type, credential_type, 
         return None
 
 
+
+
 def add_connection_roleassignment(connection_id, identity_id, identity_type, role):
     body = {
         "principal": {
@@ -304,3 +306,29 @@ def takeover_semantic_model(workspace_id, semantic_model_id):
     takeover_url = f"groups/{workspace_id}/datasets/{semantic_model_id}/Default.TakeOver"
     response = run_command(f"api -A powerbi -X post {takeover_url}")
     return json.loads(response)
+
+
+def generate_connection_string(workspace_name, item_type, database, client_id, client_secret):
+    print(f"Generating connection string for {item_type} '{database}' in workspace '{workspace_name}'...")
+    workspace_name_escaped = workspace_name.replace("/", "\\/")
+    sqldb_item = get_item(f"/{workspace_name_escaped}.Workspace/{database}.{item_type}")
+    print(sqldb_item)
+    if item_type == "SQLDatabase":
+        server = sqldb_item.get('properties').get('serverFqdn')
+        database = sqldb_item.get("properties").get("databaseName")
+    elif item_type == "Lakehouse":
+        server = sqldb_item.get("properties").get('sqlEndpointProperties').get('connectionString')  
+    else:
+        server = sqldb_item.get('properties').get('connectionString')
+
+    connection_string = (
+        f"Server={server};"
+        f"Database={database};"
+        f"Authentication=Active Directory Service Principal;"
+        f"User Id={client_id};"
+        f"Password={client_secret};"
+        f"Encrypt=True;"
+        f"Connection Timeout=60;"
+    )
+
+    return connection_string

@@ -40,7 +40,7 @@ if env_definition:
     
     # Resolve lakehouse connection and SQL endpoint information
     workspace_name = solution_name.format(layer=model_layer, environment=dev_environment).replace("/", "\\/")
-    workspace_id = fabcli.run_command(f"get '{workspace_name}.Workspace' -q id").strip()
+    workspace_id = fabcli.run_command(f"get '{workspace_name}.Workspace' -q id -f").strip()
 
     semantic_model_id = fabcli.get_item_id(f"/{workspace_name}.Workspace/{semantic_model_name}.SemanticModel", retry_count=2)
 
