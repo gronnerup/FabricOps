@@ -117,7 +117,7 @@ if action == "create":
                         if connect_response:                            
                             init_response = fabcli.initialize_git_connection(workspace_id)
                             if init_response and init_response.get("requiredAction") != "None" and init_response.get("remoteCommitHash"):
-                                fabcli.update_workspace_from_git(workspace_id, init_response.get("remoteCommitHash"))
+                                fabcli.update_workspace_from_git(workspace_id, init_response.get("remoteCommitHash"), init_response.get("workspaceHead"))
                             
                             misc.print_success(" ✔")
 
@@ -144,7 +144,7 @@ if action == "create":
                         continue
                     else:
                         try:
-                            fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"))
+                            fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
                             misc.print_success(" ✔")
                         except:
                             misc.print_error(" ✖ Failed!")
@@ -165,7 +165,7 @@ elif action == "update": # Support workspace synchronization on commit for exist
                     misc.print_warning(" ⚠ Already up to date.")
                     continue
                 else:
-                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"))
+                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
                     misc.print_success(" ✔")
 
             print ("")

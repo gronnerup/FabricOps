@@ -50,7 +50,7 @@ if env_definition:
                     misc.print_warning(" ⚠ No changes detected.")
                     continue
                 else:
-                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"))
+                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
                     misc.print_success(" ✔")
 
     misc.print_success(f"Environment workspaces synchronized!",bold = True)
