@@ -264,6 +264,7 @@ def update_workspace_from_git(workspace_id, remote_commit_hash):
 
     post_data = {
         "remoteCommitHash": remote_commit_hash,
+        "workspaceHead": workspace_head,
         "conflictResolution": {
             "conflictResolutionType": "Workspace",
             "conflictResolutionPolicy": "PreferRemote"
