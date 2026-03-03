@@ -214,3 +214,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Mac OS DS_Store
+.DS_Store
+
+# Credentials (keep template, ignore actual credentials)
+automation/credentials/credentials.json

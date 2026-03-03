@@ -259,7 +259,7 @@ def list_all_workspace_items(workspace_id):
     return all_items
 
 
-def update_workspace_from_git(workspace_id, remote_commit_hash):
+def update_workspace_from_git(workspace_id, remote_commit_hash, workspaceHead = None):
     update_url = f"workspaces/{workspace_id}/git/updateFromGit"
 
     post_data = {
@@ -270,11 +270,13 @@ def update_workspace_from_git(workspace_id, remote_commit_hash):
         },
         "options": {
             "allowOverrideItems": True
-        }
+            }
     }
 
-    response = json.loads(run_command(f"api -X post {update_url} -i {json.dumps(post_data)} --show_headers"))
+    if workspaceHead is not None:
+        post_data["workspaceHead"] = workspaceHead
 
+    response = json.loads(run_command(f"api -X post {update_url} -i {json.dumps(post_data)} --show_headers"))
     if response.get("status_code") == 202: #LRO
         operation_id = response.get("headers").get("x-ms-operation-id")
         poll_operation_status(operation_id)
