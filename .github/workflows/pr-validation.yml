@@ -96,7 +96,7 @@ jobs:
               # Run Tabular Editor BPA
               # -A: Analyze with rules file, -V: Verbose output
               $process = Start-Process -FilePath $toolPath `
-                  -ArgumentList """$definitionPath"" -A ""$rulesPath"" -V" `
+                  -ArgumentList """$definitionPath"" -A ""$rulesPath"" -G" `
                   -NoNewWindow -Wait -PassThru
               
               if ($process.ExitCode -ne 0) {
