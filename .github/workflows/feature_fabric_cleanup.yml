@@ -48,11 +48,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r automation/resources/requirements.txt
 
+      # Only feature/* branches have workspaces. A release branch or a hotfix merged to main
+      # closes a pull request too, and there is nothing of its name to delete.
       - name: Run Fabric feature maintenance script
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'feature/')
         run: |
           python -u automation/scripts/fabric_feature_maintainance.py \
             --branch_name "${{ github.event.inputs.branch_name || github.head_ref }}" \
             --action delete
+
+      - name: Not a feature branch
+        if: github.event_name != 'workflow_dispatch' && !startsWith(github.head_ref, 'feature/')
+        run: echo "'${{ github.head_ref }}' is not a feature/* branch - no workspaces to delete; dev still syncs below"
 
       # Fabric never pulls on its own, so main moving forward leaves dev behind until
       # something asks it to catch up.
