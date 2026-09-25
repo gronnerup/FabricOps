@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../schemas/solution.schema.json
+display_name_pattern: '*{feature_name} ({layer_name})'
+defaults:
+  capacity: your-capacity-name
+  permissions:
+    admin:
+    - type: Group
+      id: 11111111-1111-1111-1111-111111111111
+  git:
+    credentials:
+      source: ConfiguredConnection
+      connection: FabricOps-GitHub
+    provider: GitHub
+    owner: your-org
+    repository: your-fabric-repo
+layers:
+  Prepare:
+    properties:
+      sparkSettings.pool.starterPool.maxExecutors: 1
+      sparkSettings.pool.starterPool.maxNodeCount: 1
+    git:
+      directory: solution/engineering/prepare
+      sync_on_commit: true
+  Ingest:
+    properties:
+      sparkSettings.pool.starterPool.maxExecutors: 1
+      sparkSettings.pool.starterPool.maxNodeCount: 1
+    git:
+      directory: solution/engineering/ingest
+      sync_on_commit: true
+  Orchestrate:
+    git:
+      directory: solution/engineering/orchestrate
+      sync_on_commit: true
+  Present:
+    git:
+      directory: solution/analytics/present
+      sync_on_commit: true
+  Model:
+    git:
+      directory: solution/analytics/model
+      sync_on_commit: false
+      disconnect_after_initialize: true

@@ -1,0 +1,59 @@
+name: Reap stale feature workspaces
+
+# The PR-close cleanup handles the tidy path. This catches what it misses: a branch
+# deleted without a PR, a PR closed while the runner was down, an experiment nobody came
+# back to. Reports on a schedule and only deletes on demand, because a scheduled job that
+# deletes workspaces unattended is a job you find out about the hard way.
+on:
+  schedule:
+    - cron: '30 3 * * *'         # daily, after the nightly full dev sync
+  workflow_dispatch:
+    inputs:
+      apply_when:
+        description: 'Delete: none (report only), branch-gone (branch deleted), both (also age-based)'
+        type: choice
+        options: [ none, branch-gone, both ]
+        default: branch-gone
+      ttl_days:
+        description: 'Age in days after which a feature workspace is stale'
+        type: string
+        default: '14'
+
+jobs:
+  reap:
+    name: Reap Fabric feature workspaces
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: 1
+      TENANT_ID: ${{ secrets.SPN_TENANT_ID }}
+      CLIENT_ID: ${{ secrets.SPN_CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.SPN_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r automation/resources/requirements.txt
+
+      # GITHUB_TOKEN is enough to ask whether a branch still exists in this repository.
+      - name: Reap
+        run: |
+          WHEN="${{ inputs.apply_when || 'branch-gone' }}"
+          ARGS=""; [ "$WHEN" != none ] && ARGS="--apply --apply-when $WHEN"
+          python -u -m fabricops feature reap \
+            --resources automation/resources \
+            --ttl-days "${{ inputs.ttl_days || '14' }}" \
+            --github-pat "${{ secrets.GITHUB_TOKEN }}" \
+            $ARGS
+        env:
+          PYTHONPATH: automation/src

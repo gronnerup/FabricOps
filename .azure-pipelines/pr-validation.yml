@@ -1,5 +1,12 @@
-# PR Validation Pipeline - Best Practice Analyzer for Semantic Models
-# Triggers on pull requests targeting the main branch
+# PR validation: one check on the pull request, two jobs on two agents.
+#
+#   Validate  (ubuntu)   the offline suite, every recipe, the sanitise scan, and the
+#                        naming and layout conventions - all of it without a tenant
+#   BPA       (windows)  Best Practice Analyzer over every semantic model in the tree
+#
+# No path filter: the suite guards solution/ as much as automation/ now (placement,
+# .platform format, naming), so a PR that only touches a notebook needs it too.
+name: PR - Validation
 
 trigger: none
 
@@ -8,118 +15,99 @@ pr:
     include:
       - main
 
-pool:
-  vmImage: 'windows-latest'
+variables:
+  - name: PYTHONIOENCODING
+    value: utf-8
+  - name: PYTHONUNBUFFERED
+    value: 1
+  - name: PIP_CACHE_DIR
+    value: $(Pipeline.Workspace)/.pip
 
-stages:
-  - stage: ValidateSemanticModels
-    displayName: 'Validate Semantic Models'
-    jobs:
-      - job: RunBPA
-        displayName: 'Run Best Practice Analyzer'
-        steps:
-          - checkout: self
-            displayName: 'Checkout repository'
+jobs:
+  - job: Validate
+    displayName: 'Tests, recipes, sanitise, naming'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.12'
 
-          - task: PowerShell@2
-            displayName: 'Download Tabular Editor'
-            inputs:
-              targetType: 'inline'
-              script: |
-                $toolPath = "$(Build.SourcesDirectory)\_tools\TabularEditor"
-                New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
-                
-                Write-Host "Downloading Tabular Editor binaries..."
-                $downloadUrl = "https://github.com/TabularEditor/TabularEditor/releases/latest/download/TabularEditor.Portable.zip"
-                $zipFile = "$toolPath\TabularEditor.zip"
-                
-                Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile
-                Expand-Archive -Path $zipFile -DestinationPath $toolPath -Force
-                
-                Write-Host "Tabular Editor downloaded successfully"
+      - task: Cache@2
+        displayName: 'Cache pip'
+        inputs:
+          key: 'pip | "$(Agent.OS)" | automation/resources/requirements.txt'
+          restoreKeys: |
+            pip | "$(Agent.OS)"
+          path: $(PIP_CACHE_DIR)
 
-          - task: PowerShell@2
-            displayName: 'Run BPA on Semantic Models'
-            inputs:
-              targetType: 'inline'
-              script: |
-                $toolPath = "$(Build.SourcesDirectory)\_tools\TabularEditor\TabularEditor.exe"
-                $rulesPath = "$(Build.SourcesDirectory)\automation\resources\BPARules.json"
-                $modelsPath = "$(Build.SourcesDirectory)\solution\model"
-                
-                Write-Host "Searching for semantic models in: $modelsPath"
-                
-                # Get all first-level folders in solution/model
-                $modelFolders = Get-ChildItem -Path $modelsPath -Directory
-                
-                if ($modelFolders.Count -eq 0) {
-                    Write-Warning "No model folders found"
-                    exit 0
+      - script: |
+          python -m pip install --upgrade pip
+          pip install -r automation/resources/requirements.txt
+        displayName: 'Install Python dependencies'
+
+      # The fake `fab` harness stands in for the CLI; nothing here needs a tenant.
+      - script: python -m unittest discover -s automation/tests -t automation
+        displayName: 'Offline test suite (engine, recipes, layout and naming conventions)'
+
+      - script: python -m fabricops recipe validate --all --resources automation/resources
+        displayName: 'Validate every recipe'
+        env:
+          PYTHONPATH: automation/src
+
+      - script: python -m fabricops sanitise --report-only
+        displayName: 'Scan for tenant-specific values'
+        env:
+          PYTHONPATH: automation/src
+
+  - job: BPA
+    displayName: 'Best Practice Analyzer on semantic models'
+    pool:
+      vmImage: windows-latest
+    steps:
+      - checkout: self
+
+      - task: PowerShell@2
+        displayName: 'Download Tabular Editor'
+        inputs:
+          targetType: inline
+          script: |
+            $toolPath = "$(Build.SourcesDirectory)\_tools\TabularEditor"
+            New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
+            $zipFile = "$toolPath\TabularEditor.zip"
+            Invoke-WebRequest -Uri "https://github.com/TabularEditor/TabularEditor/releases/latest/download/TabularEditor.Portable.zip" -OutFile $zipFile
+            Expand-Archive -Path $zipFile -DestinationPath $toolPath -Force
+
+      - task: PowerShell@2
+        displayName: 'Run BPA on every semantic model'
+        inputs:
+          targetType: inline
+          script: |
+            $toolPath  = "$(Build.SourcesDirectory)\_tools\TabularEditor\TabularEditor.exe"
+            $rulesPath = "$(Build.SourcesDirectory)\automation\resources\BPARules.json"
+            $treePath  = "$(Build.SourcesDirectory)\solution"
+
+            # Every *.SemanticModel folder anywhere under solution/, whichever layer holds it.
+            # A fixed layer path is how this job once scanned an empty folder and passed.
+            $models = Get-ChildItem -Path $treePath -Directory -Recurse -Filter "*.SemanticModel"
+            if ($models.Count -eq 0) {
+                Write-Host "##vso[task.logissue type=error]No *.SemanticModel folder found under solution/ - refusing to pass on nothing"
+                exit 1
+            }
+
+            $hasErrors = $false
+            foreach ($folder in $models) {
+                $definition = Join-Path $folder.FullName "definition"
+                if (!(Test-Path $definition)) { $definition = $folder.FullName }
+                $name = $folder.Name -replace '\.SemanticModel$', ''
+                Write-Host "##[group]Analyzing: $name"
+                Write-Host "Path: $definition"
+                $p = Start-Process -FilePath $toolPath -ArgumentList """$definition"" -A ""$rulesPath"" -V" -NoNewWindow -Wait -PassThru
+                if ($p.ExitCode -ne 0) {
+                    Write-Host "##vso[task.logissue type=error]BPA found errors in: $name"
+                    $hasErrors = $true
                 }
-                
-                Write-Host "Found $($modelFolders.Count) folder(s) to check"
-                
-                $hasErrors = $false
-                $modelsProcessed = 0
-                
-                foreach ($folder in $modelFolders) {
-                    $folderPath = $folder.FullName
-                    $definitionPath = $null
-                    
-                    # Check if folder contains a definition subfolder (TMDL format)
-                    $definitionFolder = Join-Path $folderPath "definition"
-                    if (Test-Path $definitionFolder) {
-                        $definitionPath = $definitionFolder
-                    }
-                    # Check for database.json (TMDL folder format)
-                    elseif (Test-Path (Join-Path $folderPath "database.json")) {
-                        $definitionPath = $folderPath
-                    }
-                    # Check for *.bim file (BIM format)
-                    else {
-                        $bimFile = Get-ChildItem -Path $folderPath -Filter "*.bim" -File | Select-Object -First 1
-                        if ($bimFile) {
-                            $definitionPath = $bimFile.FullName
-                        }
-                    }
-                    
-                    # Skip if no valid model definition found
-                    if (!$definitionPath) {
-                        Write-Host "Skipping folder (no model found): $($folder.Name)"
-                        continue
-                    }
-                    
-                    # Extract model name
-                    if ($folder.Name -match '^(.+)\.SemanticModel$') {
-                        $modelName = $matches[1]
-                    } else {
-                        $modelName = $folder.Name
-                    }
-                    
-                    $modelsProcessed++
-                    
-                    Write-Host "##[group]Analyzing: $modelName"
-                    Write-Host "Path: $definitionPath"
-                    
-                    # Run Tabular Editor BPA
-                    # -A: Analyze with rules file, -V: Verbose output
-                    $process = Start-Process -FilePath $toolPath `
-                        -ArgumentList """$definitionPath"" -A ""$rulesPath"" -V" `
-                        -NoNewWindow -Wait -PassThru
-                    
-                    if ($process.ExitCode -ne 0) {
-                        Write-Host "##vso[task.logissue type=error]BPA found errors in: $modelName"
-                        $hasErrors = $true
-                    }
-                    
-                    Write-Host "##[endgroup]"
-                }
-                
-                Write-Host "Processed $modelsProcessed semantic model(s)"
-                
-                if ($hasErrors) {
-                    Write-Host "##vso[task.complete result=Failed;]Best Practice Analyzer found errors"
-                    exit 1
-                }
-                
-                Write-Host "All semantic models passed BPA validation"
+                Write-Host "##[endgroup]"
+            }
+            Write-Host "Analyzed $($models.Count) semantic model(s)"
+            if ($hasErrors) { Write-Host "##vso[task.complete result=Failed;]Best Practice Analyzer found errors"; exit 1 }

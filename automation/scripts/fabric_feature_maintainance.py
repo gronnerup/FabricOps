@@ -1,192 +1,119 @@
-import os, argparse, json
-import modules.fabric_cli_functions as fabcli
-import modules.misc_functions as misc
+#!/usr/bin/env python
+"""Fabric feature workspace maintenance - entry point.
 
-default_branch_name = os.environ.get('GITHUB_REF_NAME') if os.environ.get('GITHUB_REF_NAME') else os.environ.get('BUILD_SOURCEBRANCH').removeprefix("refs/heads/") if os.environ.get('BUILD_SOURCEBRANCH') else None
+A thin wrapper over the `fabricops` package, keeping the arguments the pipelines already
+pass. See documentation/specs/E08 for what the new implementation adds: the
+branched-workspace relation, ownership tags, the developer as admin of their own
+workspace, and the shared git module.
 
-# Get arguments 
-parser = argparse.ArgumentParser(description="Fabric feature maintainance arguments")
-parser.add_argument("--tenant_id", required=False, default=os.environ.get('TENANT_ID'), help="Azure Active Directory (Microsoft Entra ID) tenant ID used for authenticating with Fabric APIs. Defaults to the TENANT_ID environment variable.")
-parser.add_argument("--client_id", required=False, default=os.environ.get('CLIENT_ID'), help="Client ID of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_ID environment variable.")
-parser.add_argument("--client_secret", required=False, default=os.environ.get('CLIENT_SECRET'), help="Client secret of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_SECRET environment variable.")
-parser.add_argument("--branch_name", required=False, default=default_branch_name, help="The name of the Git feature branch to operate on. Used for workspace setup, automation, and CI/CD logic. Defaults to a predefined variable `branch_name`.")
-parser.add_argument("--action", required=False, default="create", help="Action to perform: `create` to set up a new feature branch and workspace, `update` to synchronize repos and workspaces, `delete` to clean up. Default is `create`.")
+    python automation/scripts/fabric_feature_maintainance.py --branch_name feature/peer/x
+    python automation/scripts/fabric_feature_maintainance.py --action update
+    python automation/scripts/fabric_feature_maintainance.py --action delete --branch_name $BRANCH
 
-args = parser.parse_args()
-tenant_id = args.tenant_id
-client_id = args.client_id
-client_secret = args.client_secret
-branch_name = args.branch_name
-action = args.action
+The previous implementation is kept at
+automation/scripts/legacy/fabric_feature_maintainance.py.
+"""
 
-feature_json = misc.load_json(os.path.join(os.path.dirname(__file__), f'../resources/environments/feature.json'))
-layers = feature_json.get("layers")
-permissions = feature_json.get("permissions")
-capacity_name = feature_json.get("capacity_name")
-feature_name = feature_json.get("feature_name")
-git_settings = feature_json.get("git_settings")
-branch_name_trimmed = branch_name.replace("feature/", "").replace("/feature", "")
+from __future__ import annotations
 
-# Filter layers based on branch name
-def filter_layers_by_branch(layers, branch_name_trimmed):
-    """Filter layers based on branch name pattern and always_provision flag"""
-    # Extract layer name from branch if it matches pattern: /layername/feature or layername/feature
-    layer_from_branch = None
-    parts = branch_name_trimmed.split("/")
-    if len(parts) > 1:
-        # Check if first part matches any layer name (case-insensitive)
-        potential_layer = parts[0].lower()
-        for layer_key in layers.keys():
-            if layer_key.lower() == potential_layer:
-                layer_from_branch = layer_key
-                break
-    
-    if not layer_from_branch:
-        # No specific layer in branch name, return all layers
-        return layers
-    
-    # Filter layers: include matched layer and any with always_provision=true
-    filtered_layers = {}
-    for layer_key, layer_def in layers.items():
-        if layer_key == layer_from_branch or layer_def.get("always_provision", False):
-            filtered_layers[layer_key] = layer_def
-    
-    return filtered_layers
+import argparse
+import os
+import pathlib
+import sys
 
-layers = filter_layers_by_branch(layers, branch_name_trimmed)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-fabcli.run_command("config set encryption_fallback_enabled true")
-fabcli.run_command(f"auth login -u {client_id} -p {client_secret} --tenant {tenant_id}")
+from fabricops.cli import main as fabricops_main  # noqa: E402  (after sys.path setup)
 
-if action == "create":
-    misc.print_header(f"Setting up feature development workspaces")
-    for layer, layer_definition in layers.items():
-            # Extract only the last part of the branch name after the last /
-            feature_name_short = branch_name_trimmed.split("/")[-1]
-            workspace_name = feature_name.format(feature_name=feature_name_short, layer_name=layer)
-            workspace_name_escaped = workspace_name.replace("/", "\\/")
+DEFAULT_RESOURCES = str(pathlib.Path(__file__).resolve().parents[1] / "resources")
 
-            if fabcli.run_command(f"exists {workspace_name_escaped}.Workspace").replace("*", "").strip().lower() == "false":
-                misc.print_info(f"Creating workspace '{workspace_name}'...", bold=True, end="")
-                fabcli.run_command(f"create '{workspace_name_escaped}.Workspace' -P capacityname={capacity_name}")
-                workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
-                misc.print_success(" ✔", bold=True)
 
-                if permissions:
-                    misc.print_info(f"  • Assigning workspace permissions...", end="")
-                    for permission, definitions in permissions.items():
-                        for definition in definitions:
-                            fabcli.run_command(f"acl set '{workspace_name_escaped}.Workspace' -I {definition.get("id")} -R {permission.lower()} -f")
-                    misc.print_success(" ✔")
+def default_branch() -> str | None:
+    if os.environ.get("GITHUB_REF_NAME"):
+        return os.environ["GITHUB_REF_NAME"]
+    source_branch = os.environ.get("BUILD_SOURCEBRANCH")
+    return source_branch.removeprefix("refs/heads/") if source_branch else None
 
-                if layer_definition.get("spark_settings"):
-                    misc.print_info(f"  • Set workspace spark settings... ", end="")
-                    spark_settings = misc.flatten_dict(layer_definition.get("spark_settings"))
-                    for key, value in spark_settings:
-                        fabcli.run_command(f"set '{workspace_name_escaped}.Workspace' -q sparkSettings.{key} -i {value} -f")
-                    misc.print_success(" ✔")
 
-                if git_settings:
-                    connection_id = None
-                    misc.print_info(f"  • Setting up Git integration ({git_settings.get('gitProviderDetails').get('gitProviderType')})...", end="")
-                    
-                    if git_settings.get("myGitCredentials").get("connectionId"):
-                        if fabcli.connection_exists(git_settings.get("myGitCredentials").get("connectionId")):
-                            connection_id = git_settings.get("myGitCredentials").get("connectionId")
+def default_developer() -> str | None:
+    actor = os.environ.get("GITHUB_ACTOR") or os.environ.get("BUILD_REQUESTEDFOREMAIL")
+    return actor or None
 
-                    if git_settings.get("myGitCredentials").get("connection_name"):
-                        if git_settings.get('gitProviderDetails').get('gitProviderType').lower() == "github":
-                            identity_username = os.environ.get('GITHUB_ACTOR')
-                            identity_id =  os.environ.get("GITHUB_ACTOR_ID")
-                        else:
-                            identity_username = os.getenv("BUILD_REQUESTEDFOREMAIL").split("@")[0].upper() if os.getenv("BUILD_REQUESTEDFOREMAIL") else None
-                            identity_id = os.getenv("BUILD_REQUESTEDFORID")
 
-                        connection_name = git_settings.get("myGitCredentials").get("connection_name").format(identity_id=identity_id, identity_username=identity_username)
-                        
-                        if fabcli.connection_exists(connection_name):
-                            connection_id = fabcli.run_command(f"get .connections/{connection_name}.Connection -q id -f")
-                            git_settings["myGitCredentials"].pop("connection_name", None) # Remove connection name
-                            git_settings["myGitCredentials"]["connectionId"] = connection_id # Add connection id required by Fabric REST API
-                        
-                    if connection_id:
-                        git_settings["gitProviderDetails"]["branchName"] = branch_name
-                        git_settings["gitProviderDetails"]["directoryName"] = layer_definition.get("git_directoryName")
-                        
-                        connect_response = fabcli.connect_workspace_to_git(workspace_id, git_settings)
-                        if connect_response:                            
-                            init_response = fabcli.initialize_git_connection(workspace_id)
-                            if init_response and init_response.get("requiredAction") != "None" and init_response.get("remoteCommitHash"):
-                                fabcli.update_workspace_from_git(workspace_id, init_response.get("remoteCommitHash"))
-                            
-                            misc.print_success(" ✔")
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Fabric feature maintenance arguments")
+    parser.add_argument("--action", default="create", help="create, update or delete. Default: create.")
+    parser.add_argument("--branch_name", default=default_branch(), help="Feature branch to operate on.")
+    parser.add_argument("--solution", default=os.environ.get("FABOPS_SOLUTION"))
+    parser.add_argument("--layers", default=None, help="Comma-separated subset of layers. Optional.")
+    parser.add_argument("--resources", default=DEFAULT_RESOURCES)
+    parser.add_argument("--developer", default=default_developer(), help="Owner slug for tags and recipe overlays.")
+    parser.add_argument(
+        "--developer_object_id",
+        # Only ever an explicit value. Neither CI system has an Entra object id to offer:
+        # GitHub's GITHUB_ACTOR_ID is GitHub's own numeric user id, and Azure DevOps'
+        # BUILD_REQUESTEDFORID is an *Azure DevOps* identity id - GUID-shaped, so it passes a
+        # shape check, and then rejected by Fabric. Defaulting to either meant every feature
+        # run attempted an ACL we already knew would fail, once per layer. Unset, the recipe's
+        # own permissions are all that is applied, which is what they are for.
+        default=os.environ.get("FABOPS_DEVELOPER_OBJECT_ID"),
+        help="Entra object id of the developer, to grant them admin on their own workspace. "
+             "Optional: without it, only the recipe's permissions are applied.",
+    )
+    parser.add_argument("--base_environment", default="dev", help="Environment the branch relates to. Default: dev.")
+    parser.add_argument("--no_relation", action="store_true", help="Skip the branched-workspace relation.")
+    parser.add_argument("--tenant_id", default=os.environ.get("TENANT_ID"))
+    parser.add_argument("--client_id", default=os.environ.get("CLIENT_ID"))
+    parser.add_argument("--client_secret", default=os.environ.get("CLIENT_SECRET"))
+    parser.add_argument("--github_pat", default=os.environ.get("GITHUB_PAT"))
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--log-level", default=os.environ.get("FABOPS_LOG_LEVEL"))
+    parser.add_argument("--trace-file", default=os.environ.get("FABOPS_TRACE_FILE"))
+    return parser.parse_args(argv)
 
-                            # Disconnect from Git if specified
-                            if layer_definition.get("git_disconnect_after_initialize", False):
-                                misc.print_info(f"  • Disconnect workspace from git...", end="")
-                                fabcli.disconnect_git_connection(workspace_id)
-                                misc.print_success(" ✔")
-                        else:
-                            misc.print_error(f" ✖ Failed! Please verify connection and tenant settings.")
-                    else:
-                        misc.print_error(f"Connection not found. Skipping Git integration setup.")
-                        
-            else: # Support workspace synchronization on commit for existing workspaces
-                misc.print_info(f"{workspace_name} already exist. Feature workspace creation skipped!", bold=True)
-                if layer_definition.get("git_synchronize_on_commit", False) and not layer_definition.get("git_disconnect_after_initialize", False):
-                    misc.print_info(f"  • Synchronizing workspace {workspace_name_escaped} with latest changes from Git...", end="")
-                    workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
-                    
-                    git_status = fabcli.get_git_status(workspace_id)
 
-                    if git_status and git_status.get("workspaceHead") == git_status.get("remoteCommitHash"):
-                        misc.print_warning(" ⚠ Already up to date.")
-                        continue
-                    else:
-                        try:
-                            fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
-                            misc.print_success(" ✔")
-                        except:
-                            misc.print_error(" ✖ Failed!")
-            print ("")
-    misc.print_success(f"Feature development workspace setup completed!",bold = True)
-elif action == "update": # Support workspace synchronization on commit for existing workspaces in GitHub scenario
-    misc.print_header(f"Synchronizing feature development workspaces")
-    for layer, layer_definition in layers.items():
-            feature_name_short = branch_name_trimmed.split("/")[-1]
-            workspace_name = feature_name.format(feature_name=feature_name_short, layer_name=layer)
-            workspace_name_escaped = workspace_name.replace("/", "\\/")
-            if layer_definition.get("git_synchronize_on_commit", False) and not layer_definition.get("git_disconnect_after_initialize", False):
-                misc.print_info(f"Synchronizing workspace {workspace_name_escaped} with latest changes from Git repo...", bold=True, end="")
-                workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
+def build_argv(args: argparse.Namespace) -> list[str]:
+    argv: list[str] = ["--resources", args.resources]
+    if args.solution:
+        argv += ["--solution", args.solution]
+    if args.log_level:
+        argv += ["--log-level", args.log_level]
+    if args.trace_file:
+        argv += ["--trace-file", args.trace_file]
+    if args.dry_run:
+        argv.append("--dry-run")
+    for flag, value in (
+        ("--tenant-id", args.tenant_id),
+        ("--client-id", args.client_id),
+        ("--client-secret", args.client_secret),
+        ("--github-pat", args.github_pat),
+    ):
+        if value:
+            argv += [flag, value]
 
-                git_status = fabcli.get_git_status(workspace_id)
-                if git_status and git_status.get("workspaceHead") == git_status.get("remoteCommitHash"):
-                    misc.print_warning(" ⚠ Already up to date.")
-                    continue
-                else:
-                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
-                    misc.print_success(" ✔")
+    argv += ["feature", str(args.action).lower()]
+    if args.branch_name:
+        argv += ["--branch", args.branch_name]
+    if args.developer:
+        argv += ["--developer", args.developer]
+    if args.developer_object_id:
+        argv += ["--developer-object-id", args.developer_object_id]
+    if args.layers:
+        argv += ["--layers", args.layers]
+    if args.base_environment:
+        argv += ["--base-environment", args.base_environment]
+    if args.no_relation:
+        argv.append("--no-relation")
+    return argv
 
-            print ("")
-    misc.print_success(f"Feature development workspace setup completed!",bold = True)
-elif action == "delete":
-    misc.print_header(f"Remove feature development workspaces")
-    
-    branch_name_trimmed = branch_name.removeprefix("refs/heads/feature/").removeprefix("feature/")
-    
-    for layer, layer_definition in layers.items():
-        feature_name_short = branch_name_trimmed.split("/")[-1]
-        workspace_name = feature_name.format(feature_name=feature_name_short, layer_name=layer)
-        workspace_name_escaped = workspace_name.replace("/", "\\/")
-        misc.print_info(f"Deleting workspace '{workspace_name}'... ", bold=True, end="")
-        if fabcli.run_command(f"exists {workspace_name_escaped}.Workspace").replace("*", "").strip().lower() == "true":
-            fabcli.run_command(f"rm '{workspace_name_escaped}.Workspace' -f")
-            misc.print_success(" ✔")
-        else:
-            misc.print_warning(f" ⚠ Workspace does not exist. Skipping deletion!")
 
-    misc.print_success(f"Removal of feature development workspaces completed!",bold = True)
-else:
-    misc.print_error(f"Unknown action '{action}'. Please use 'create', 'delete', or 'merge'.")
-    exit(1)
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if str(args.action).lower() not in ("create", "update", "delete"):
+        print(f"Unknown action '{args.action}'. Please use create, update or delete.", file=sys.stderr)
+        return 2
+    return fabricops_main(build_argv(args))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

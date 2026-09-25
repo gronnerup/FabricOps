@@ -1,161 +1,117 @@
-#---------------------------------------------------------
-# Default values
-#---------------------------------------------------------
-default_solution_path = ""
-default_item_types_in_scope = "Notebook,DataPipeline,Lakehouse,SQLDatabase,SemanticModel,Report"
-default_stages_in_scope = "core,ingest,store,prepare,orchestrate,model,insight,present"
-default_environment = "tst"
+#!/usr/bin/env python
+"""Fabric release - entry point.
 
-#---------------------------------------------------------
-# Main script
-#---------------------------------------------------------
-import os, sys, argparse, json
-from pathlib import Path
-from fabric_cicd import FabricWorkspace, publish_all_items, unpublish_all_orphan_items, change_log_level
-import modules.fabric_cli_functions as fabcli
-import modules.misc_functions as misc
-from azure.identity import ClientSecretCredential
+A thin wrapper over the `fabricops` package, keeping the arguments the pipelines already
+pass. See documentation/specs/E09 for what the new implementation adds: deployment policy
+declared per layer in the recipe, a generated parameter overlay that leaves the committed
+parameter file alone, native `semantic_model_binding` in place of the hand-written binding
+step, dependency-ordered layers and a non-zero exit code when a layer fails.
 
-# Ensure stdout and stderr are line-buffered
-sys.stdout.reconfigure(line_buffering=True, write_through=True)
-sys.stderr.reconfigure(line_buffering=True, write_through=True)
+    python automation/scripts/fabric_release.py --environment tst
+    python automation/scripts/fabric_release.py --environment prd --layers store,model
 
-# Get arguments 
-parser = argparse.ArgumentParser(description="Fabric release arguments")
-parser.add_argument("--environment", required=True, default=default_environment, help="Name of environment to release.")
-parser.add_argument("--layers", required=False, default=default_stages_in_scope, help="Comma seperated list of layers to deploy. Can also be single layer.")
-parser.add_argument("--item_types", required=False, default=default_item_types_in_scope, help="Comma seperated list of item types in scope. Must match Fabric ItemTypes exactly.")
-parser.add_argument("--repo_path", required=False, default=default_solution_path, help="Path the the solution repository where items are stored.")
-parser.add_argument("--is_debug", required=False, default=False, type=lambda x: x.lower() in ['true', '1', 'yes'], help="Enable debug logging.")
-parser.add_argument("--unpublish_items", required=False, default=True, type=lambda x: x.lower() in ['true', '1', 'yes'], help="Whether to unpublish orphan items that are no longer in the repository. Default is True.")
-parser.add_argument("--tenant_id", required=False, default=os.environ.get('TENANT_ID'), help="Azure Active Directory (Microsoft Entra ID) tenant ID used for authenticating with Fabric APIs. Defaults to the TENANT_ID environment variable.")
-parser.add_argument("--client_id", required=False, default=os.environ.get('CLIENT_ID'), help="Client ID of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_ID environment variable.")
-parser.add_argument("--client_secret", required=False, default=os.environ.get('CLIENT_SECRET'), help="Client secret of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_SECRET environment variable.")
+The previous implementation is kept at automation/scripts/legacy/fabric_release.py.
+"""
 
-args = parser.parse_args()
-tenant_id = args.tenant_id
-client_id = args.client_id
-client_secret = args.client_secret
-environment = args.environment
-layers_to_deploy = [layers.strip().lower() for layers in args.layers.split(",")]
-item_type_list = args.item_types.split(",")
-repo_path = args.repo_path
-is_debug = args.is_debug
-unpublish_items = args.unpublish_items
+from __future__ import annotations
 
-# Uncomment to enable debug logging
-if is_debug:
-    change_log_level("DEBUG")
+import argparse
+import os
+import pathlib
+import sys
 
-# Authenticate
-fabcli.run_command("config set encryption_fallback_enabled true")
-fabcli.run_command(f"auth login -u {client_id} -p {client_secret} --tenant {tenant_id}")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-token_credential = ClientSecretCredential(client_id=client_id, client_secret=client_secret, tenant_id=tenant_id)
+from fabricops.cli import main as fabricops_main  # noqa: E402  (after sys.path setup)
 
-# Load JSON environment files (main and environment specific) and merge
-main_json = misc.load_json(os.path.join(os.path.dirname(__file__), f'../resources/environments/infrastructure.json'))
-env_json = misc.load_json(os.path.join(os.path.dirname(__file__), f'../resources/environments/infrastructure.{environment}.json'))
-env_definition = misc.merge_json(main_json, env_json)
+DEFAULT_RESOURCES = str(pathlib.Path(__file__).resolve().parents[1] / "resources")
 
-if env_definition:
-    misc.print_header(f"Releasing - {environment}")
-    
-    solution_name = env_definition.get("name")
-    layers = env_definition.get("layers")
-    
-    environment_parameters = {}
 
-    for layer, layer_definition in layers.items():
-        if layer.lower() in layers_to_deploy:        
-            workspace_name = solution_name.format(layer=layer, environment=environment)
-            workspace_name_escaped = workspace_name.replace("/", "\\/")
+def _bool(value: object) -> bool:
+    return str(value).strip().lower() in ("true", "1", "yes")
 
-            workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
 
-            misc.print_subheader(f"Running release to workspace {workspace_name}!")
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Fabric release arguments")
+    parser.add_argument("--environment", required=True, help="Environment to release, e.g. tst.")
+    parser.add_argument("--layers", default=None, help="Comma-separated subset of layers. Default: all.")
+    parser.add_argument("--item_types", default=None, help="Comma-separated Fabric item types. Overrides the recipe.")
+    parser.add_argument("--repo_path", default=".", help="Repository root the layer directories are relative to.")
+    parser.add_argument("--solution", default=os.environ.get("FABOPS_SOLUTION"))
+    parser.add_argument("--resources", default=DEFAULT_RESOURCES)
+    parser.add_argument("--parameter_file", default=None, help="Committed parameter file.")
+    parser.add_argument("--extend_parameters", default="true", help="Render the generated parameter overlay.")
+    parser.add_argument("--unpublish_items", default=None, help="Deprecated: declare `deploy.unpublish.skip` in the recipe.")
+    parser.add_argument("--is_debug", default=False, help="Enable debug logging.")
+    parser.add_argument("--tenant_id", default=os.environ.get("TENANT_ID"))
+    parser.add_argument("--client_id", default=os.environ.get("CLIENT_ID"))
+    parser.add_argument("--client_secret", default=os.environ.get("CLIENT_SECRET"))
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--log-level", default=os.environ.get("FABOPS_LOG_LEVEL"))
+    parser.add_argument("--trace-file", default=os.environ.get("FABOPS_TRACE_FILE"))
+    return parser.parse_args(argv)
 
-            target_workspace = FabricWorkspace(
-                workspace_id=workspace_id,
-                environment=environment,
-                repository_directory=os.path.join(repo_path, layer.lower()),
-                item_type_in_scope=item_type_list,
-                token_credential=token_credential,
-            )
 
-            environment_parameters = {**target_workspace.environment_parameter, **environment_parameters}
-            target_workspace.environment_parameter = environment_parameters
+def resolve_repo_path(repo_path: str) -> str:
+    """Translate the old `--repo_path` meaning to the new one.
 
-            publish_all_items(target_workspace)
+    It used to point at the solution folder, and the layer directory was that plus the
+    lower-cased layer name. It now points at the repository root, and the layer directory
+    comes from the recipe's `git.directory`, which already carries the `solution/` prefix.
+    A pipeline still passing the old value would otherwise look in `solution/solution/...`.
+    """
+    path = pathlib.Path(repo_path)
+    if path.name.lower() == "solution" and not (path / "solution").exists():
+        print(
+            f"note: --repo_path '{repo_path}' points at the solution folder. It now means the "
+            f"repository root, so '{path.parent}' is being used instead.",
+            file=sys.stderr,
+        )
+        return str(path.parent)
+    return repo_path
 
-            ### Support deployment to multiple layers in the same environment.
-            ### This is done by adding the guid mappings to the environment parameter dictionary.
-            if environment_parameters:
-                for item_name in target_workspace.repository_items.values():
-                    for item_details in item_name.values():
-                        environment_parameters["find_replace"].append({
-                            "find_value": item_details.logical_id,
-                            "replace_value": {environment: item_details.guid}
-                        })
 
-            if unpublish_items:
-                unpublish_all_orphan_items(target_workspace)
+def build_argv(args: argparse.Namespace) -> list[str]:
+    argv: list[str] = ["--resources", args.resources]
+    if args.solution:
+        argv += ["--solution", args.solution]
+    if args.log_level:
+        argv += ["--log-level", args.log_level]
+    elif _bool(args.is_debug):
+        argv += ["--log-level", "debug"]
+    if args.trace_file:
+        argv += ["--trace-file", args.trace_file]
+    if args.dry_run:
+        argv.append("--dry-run")
+    for flag, value in (
+        ("--tenant-id", args.tenant_id),
+        ("--client-id", args.client_id),
+        ("--client-secret", args.client_secret),
+    ):
+        if value:
+            argv += [flag, value]
 
-            # Bind Semantic Models to SQL Endpoints (if configured)
-            try:
-                bindings_yml = os.path.join(os.path.dirname(__file__), f"../resources/parameters/sqlendpoint_model_binding.yml")
-                bindings = misc.get_semantic_model_bindings(bindings_yml, layer)
+    argv += ["release", "--environment", args.environment, "--repo-path", resolve_repo_path(args.repo_path)]
+    if args.layers:
+        argv += ["--layers", args.layers]
+    if args.item_types:
+        argv += ["--item-types", args.item_types]
+    if args.parameter_file:
+        argv += ["--parameter-file", args.parameter_file]
+    argv += ["--extend-parameters", "true" if _bool(args.extend_parameters) else "false"]
+    return argv
 
-                if bindings:
-                    misc.print_subheader("Binding semantic models to SQL endpoints")
 
-                    for binding in bindings:
-                        lakehouse_name = binding.get("lakehouse_name")
-                        lakehouse_ws_layer = binding.get("lakehouse_ws_layer")
-                        semantic_models = binding.get("semantic_models", [])
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if args.unpublish_items is not None:
+        print(
+            "note: --unpublish_items is deprecated. Declare `deploy.unpublish.skip` on the layer "
+            "in the recipe instead, where it can also vary by environment.",
+            file=sys.stderr,
+        )
+    return fabricops_main(build_argv(args))
 
-                        # Resolve lakehouse connection and SQL endpoint information
-                        connection_name_template = misc.get_lakehouse_connection_template(env_definition, lakehouse_ws_layer, lakehouse_name)
-                        connection_identifier = connection_name_template.format(environment=environment) if connection_name_template else None
 
-                        connection_id = None
-                        database_name = None
-                        sqlendpoint = None
-                        if connection_identifier:
-                            conn_obj = fabcli.get_connection(connection_identifier)
-                            if conn_obj:
-                                conn_details = misc.parse_fabric_connection(conn_obj)
-                                connection_id = conn_details.get("connection_id")
-                                sqlendpoint = conn_details.get("sqlendpoint")
-                                database_name = conn_details.get("database_name")
-
-                        # Check if connection information was resolved successfully
-                        if not (connection_id and sqlendpoint and database_name):
-                            misc.print_warning(f"Connection information for {lakehouse_name} is incomplete. Skipping all models for this lakehouse.")
-                            continue
-
-                        # Now bind all semantic models to this lakehouse
-                        for semantic_model_name in semantic_models:
-                            semantic_model_id = fabcli.run_command(f"get '/{workspace_name}.Workspace/{semantic_model_name}.SemanticModel' -q id -f").strip()
-                            if not semantic_model_id:
-                                misc.print_warning(f"Semantic model '{semantic_model_name}' not found in workspace {workspace_name}. Skip binding.")
-                                continue
-
-                            resp = fabcli.bind_semanticmodel_sqlendpoint(
-                                workspace_id=workspace_id,
-                                item_id=semantic_model_id,
-                                connection_id=connection_id,
-                                sqlendpoint=sqlendpoint,
-                                database_name=database_name,
-                            )
-                            status = (resp or {}).get("status_code")
-                            if status == 200:
-                                misc.print_success(f"Binding '{semantic_model_name}' to SQL endpoint for lakehouse '{lakehouse_name}' successfully done.")
-                            else:
-                                misc.print_warning(f"Binding call returned non-success (status code {status}) for '{semantic_model_name}': {resp}")
-                else:
-                    misc.print_info("No semantic model bindings configured for this layer.")
-            except Exception as e:
-                misc.print_warning(f"Semantic model binding step encountered an error: {e}")
-else:
-    misc.print_error(f"No environment definition found for environment {environment}! Release of {environment} has been skipped.", True)
+if __name__ == "__main__":
+    sys.exit(main())

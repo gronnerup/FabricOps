@@ -33,12 +33,11 @@ jobs:
         pip install -r automation/resources/requirements.txt
       displayName: 'Install Python dependencies'
 
-    - script: python -u automation/scripts/utils_build_parameter_file_dynamic.py --target_environments ${{ parameters.environments }} --build_parameter_file ${{ parameters.build_parameter_file }}
-      displayName: 'Build parameter files'
-      env:
-        TENANT_ID: $(SPN_TENANT_ID)
-        CLIENT_ID: $(SPN_CLIENT_ID)
-        CLIENT_SECRET: $(SPN_CLIENT_SECRET)
+    # The parameter file is no longer built here. `fabricops release` renders whatever it
+    # has to resolve at deploy time into automation/resources/parameters/generated/, and
+    # the committed parameter.yml is never rewritten (documentation/specs/E09 section 3).
+    # The old script upserted into the committed file and copied it into every layer
+    # folder; running it now would fight the overlay.
 
     - task: PowerShell@2
       displayName: 'Download Tabular Editor'
@@ -60,13 +59,22 @@ jobs:
     - script: python -u automation/scripts/utils_build_semantic_models.py --model_dir "$(Build.SourcesDirectory)\solution\model" --tabulareditor_dir "$(Build.SourcesDirectory)\_tools\TabularEditor"
       displayName: 'Build semantic models (Fabric TMDL output)'
 
+    # ADO conditions cannot test the filesystem, so a step has to answer the question first.
+    - powershell: |
+        $found = @(Get-ChildItem -Path "$(Build.SourcesDirectory)/solution" -Recurse -Filter *.sqlproj).Count -gt 0
+        Write-Host "##vso[task.setvariable variable=hasSqlProject]$($found.ToString().ToLower())"
+        Write-Host "SQL projects present: $found"
+      displayName: 'Detect SQL projects'
+
     - task: UseDotNet@2
+      condition: and(succeeded(), eq(variables['hasSqlProject'], 'true'))
       inputs:
         packageType: 'sdk'
         version: '8.0.x'
 
-    - script: dotnet build "solution/core/Metadata.SQLDatabase/Metadata.sqlproj" /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
+    - script: dotnet build "solution/engineering/core/Metadata.SQLDatabase/Metadata.sqlproj" /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
       displayName: 'Build Metadata .dacpac'
+      condition: and(succeeded(), eq(variables['hasSqlProject'], 'true'))
 
     - task: PublishBuildArtifacts@1
       inputs:

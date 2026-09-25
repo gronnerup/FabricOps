@@ -1,0 +1,69 @@
+/// Parts in each set, from the latest inventory version.
+table 'Set Parts'
+	lineageTag: cb620f07-b972-5634-b769-2160943e55f1
+
+	/// Total pieces, counting duplicates. Latest inventory version only.
+	measure '# Parts' = SUM ( 'Set Parts'[Quantity] )
+		formatString: #,##0
+		lineageTag: 6f3ea450-25f8-5dd2-8e38-7419165d24f9
+
+	measure '# Unique Parts' = DISTINCTCOUNT ( 'Set Parts'[Part Number] )
+		formatString: #,##0
+		lineageTag: fa3bb4c3-faf4-5986-8943-2cc04b2df640
+
+	measure '# Colours Used' = DISTINCTCOUNT ( 'Set Parts'[Colour Id] )
+		formatString: #,##0
+		lineageTag: f4fdfc4a-1bc5-5f9b-96f3-5e435b088d41
+
+	column 'Set Number'
+		dataType: string
+		isHidden
+		lineageTag: 9a641a27-77e6-5076-aba2-c58268f84a00
+		summarizeBy: none
+		sourceColumn: set_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Part Number'
+		dataType: string
+		isHidden
+		lineageTag: 94934aed-da65-5290-b596-91e8803ed627
+		summarizeBy: none
+		sourceColumn: part_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Colour Id'
+		dataType: int64
+		isHidden
+		lineageTag: 56442edd-c6b0-5b30-be53-426d803ffc7b
+		summarizeBy: none
+		sourceColumn: colour_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column Quantity
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8079613a-6f62-5add-9583-aa7848f652aa
+		summarizeBy: sum
+		sourceColumn: quantity
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Is Spare'
+		dataType: boolean
+		lineageTag: 0664ea4a-693e-5177-ae7a-eda13aa59e64
+		summarizeBy: none
+		sourceColumn: is_spare
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Set Parts' = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: fact_set_part
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

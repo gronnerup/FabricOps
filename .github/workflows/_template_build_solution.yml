@@ -38,15 +38,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r automation/resources/requirements.txt
 
-      - name: Build parameter files
-        run: python -u automation/scripts/utils_build_parameter_file_dynamic.py --target_environments ${{ inputs.environments }} --build_parameter_file ${{ inputs.build_parameter_file }}
+      # The parameter file is no longer built here. `fabricops release` renders whatever it
+      # has to resolve at deploy time into automation/resources/parameters/generated/, and
+      # the committed parameter.yml is never rewritten (documentation/specs/E09 section 3).
+      # The old script upserted into the committed file and copied it into every layer
+      # folder; running it now would fight the overlay.
 
+      # A SQL Database in Fabric is not deployed as a Fabric item - its schema goes in as a
+      # dacpac - so these steps only make sense when the solution actually has a .sqlproj.
+      # Gated so that a solution without one needs no dotnet SDK at all.
       - uses: actions/setup-dotnet@v4
+        if: hashFiles('solution/**/*.sqlproj') != ''
         with:
           dotnet-version: '8.0.x'
 
       - name: 'Build Metadata .dacpac'
-        run: dotnet build 'solution/core/Metadata.SQLDatabase/Metadata.sqlproj' /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
+        if: hashFiles('solution/**/*.sqlproj') != ''
+        run: dotnet build 'solution/engineering/core/Metadata.SQLDatabase/Metadata.sqlproj' /p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlDbFabricDatabaseSchemaProvider
 
       - name: Upload Solution artifacts
         uses: actions/upload-artifact@v4

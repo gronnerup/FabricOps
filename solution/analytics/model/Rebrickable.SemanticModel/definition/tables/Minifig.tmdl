@@ -1,0 +1,38 @@
+/// Minifigures.
+table Minifig
+	lineageTag: 0b2e582f-2025-547b-8c77-7d4c259fcc15
+
+	column 'Minifig Number'
+		dataType: string
+		isKey
+		lineageTag: e8693708-11e0-5804-9f74-f25355fbd1dc
+		summarizeBy: none
+		sourceColumn: fig_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Minifig Name'
+		dataType: string
+		lineageTag: fb14ca39-4749-5da9-a66c-0ea82775ddf6
+		summarizeBy: none
+		sourceColumn: minifig_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Piece Count'
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 6723f942-db20-59e5-8326-1b5117ea2c96
+		summarizeBy: sum
+		sourceColumn: num_parts
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Minifig = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_minifig
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
