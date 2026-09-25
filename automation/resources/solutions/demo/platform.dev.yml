@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../schemas/solution.schema.json
+defaults:
+  merge_type: 2
+  is_primary: true
+  environment: dev
+  permissions:
+    Admin:
+    - type: Group
+      id: 11111111-1111-1111-1111-111111111111
+  git:
+    credentials:
+      source: ConfiguredConnection
+      connection: FabricOps-GitHub
+    provider: GitHub
+    owner: your-org
+    repository: your-fabric-repo
+    branch: main
+layers:
+  Core:
+    git:
+      sync_on_commit: true
+  Store:
+    git:
+      sync_on_commit: true
+  Prepare:
+    git:
+      sync_on_commit: true
+  Ingest:
+    git:
+      sync_on_commit: true
+  Orchestrate:
+    git:
+      sync_on_commit: true
+  Model:
+    git:
+      sync_on_commit: true
+  Present:
+    git:
+      sync_on_commit: true

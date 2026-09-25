@@ -1,0 +1,58 @@
+# PR Validation - FabricOps automation
+# Runs the offline test suite and validates every recipe in the repository.
+# No tenant, no secrets: the Fabric CLI is replaced by a fake binary (see
+# automation/tests/fakefab), so this is fast and deterministic.
+
+name: PR - Automation Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-automation:
+    name: Tests and recipe validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # requirements.txt, not one library: the release tests read parameter files with the
+      # same YAML libraries the release code uses, and those come in with fabric-cicd.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r automation/resources/requirements.txt
+
+      - name: Run the offline test suite
+        run: python -m unittest discover -s automation/tests -t automation -v
+
+      - name: Validate every recipe
+        env:
+          PYTHONPATH: automation/src
+        run: python -m fabricops recipe validate --all --resources automation/resources
+
+      - name: Show the plan for each environment
+        env:
+          PYTHONPATH: automation/src
+        run: |
+          for environment in dev tst prd; do
+            echo "::group::plan $environment"
+            python -m fabricops plan --environment "$environment" --resources automation/resources
+            echo "::endgroup::"
+          done
+
+      # The export policy is the internal repository's file and is never exported, so a
+      # clone of the public repository has nothing to scan against.
+      - name: Check for tenant-specific values in exportable paths
+        if: hashFiles('automation/resources/export.yml') != ''
+        env:
+          PYTHONPATH: automation/src
+        run: python -m fabricops sanitise --report-only

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "fabricops_util",
+    "description": "Shared helpers for solution notebooks. Included with %run fabricops_util."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "29429500-a2fe-55b5-8064-d5ab4d35eeaf"
+  }
+}

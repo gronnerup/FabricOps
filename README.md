@@ -1,283 +1,180 @@
 <p align="center">
-  <img src="FabricOps_250.png" alt="FabricOps Logo">
+  <img src="FabricOps_250.png" alt="FabricOps">
 </p>
 
-## FabricOps - The Microsoft Fabric DevOps Automation Platform
+# FabricOps
 
-A comprehensive Microsoft Fabric automation platform demonstrating enterprise-grade DevOps practices, infrastructure as code (IaC), CI/CD workflows, and modern ways-of-working for data platform delivery.
+Infrastructure as code for Microsoft Fabric. A recipe describes your platform: the
+layers, the environments, the permissions, the git wiring, the connections. FabricOps
+provisions it, keeps it in step with its branch, gives every feature branch its own
+workspaces and tears them down again, and deploys content through environments with
+`fabric-cicd`. It runs locally, from GitHub Actions and from Azure DevOps.
 
-## Overview
+It is the companion repository to the blog series
+[Fabric Automation at Scale: From Chaos to Confidence](https://peerinsights.emono.dk/series/fabric-automation-at-scale),
+and it ships a small working solution so every command here can be run against a tenant
+of your own.
 
-FabricOps is a production-ready automation framework designed to showcase best practices for Microsoft Fabric workspace management, solution delivery, and collaborative development workflows. This platform serves as both a demonstration tool for community conferences and events, and a boilerplate reference for enterprise Fabric implementations.
+## What it does
 
-The solution represents a realistic enterprise scenario with:
-- **Multi-environment architecture** (dev, test, prod)
-- **Automated infrastructure provisioning and teardown**
-- **Feature-based development workflows**
-- **Comprehensive CI/CD pipelines**
-- **Quality gates and validation processes**
+* **Provisions from a recipe.** One file per solution, an overlay per environment,
+  JSON or YAML. Workspaces, capacity, roles, workspace identities, git integration,
+  connections. Run it twice and the second run changes nothing.
+* **Plans before it acts.** `plan` prints the ordered actions offline. `--dry-run`
+  performs every read and no write, so the plan reflects the tenant, not an assumption.
+* **Keeps dev in step with git.** A merge to `main` syncs the layers the merge touched.
+  A nightly run syncs everything. Fabric never pulls on its own, so something has to.
+* **Gives a branch its workspaces.** `feature/<group>/<topic>` creates a workspace per
+  layer the group selects, connected to that branch. The pull request closing removes
+  them. A daily reaper catches the ones nobody came back for, and only deletes when the
+  git provider confirms the branch is gone.
+* **Resolves references that can only be ids.** A report needs its model's id, a
+  pipeline needs a notebook's id, and both are per tenant. `references sync` rewrites
+  them from the manifest of what was actually created.
+* **Deploys with `fabric-cicd`,** layer by layer, in dependency order, with a
+  `parameter.yml` the recipe helps fill in.
+* **Isolates feature data when asked.** Off by default. Opt in, and notebooks in a
+  feature workspace write to a schema of their own in the shared lakehouse and read
+  through to the base tables. Teardown drops the schema.
+* **Tests itself offline.** Over 700 tests run against a fake `fab` binary. They prove
+  the arguments, the parsing and the control flow. Nothing in the suite reaches a tenant.
 
-It includes fully automated pipelines that support modern ways of working, validation, and deployment across environments while maintaining workspace synchronization and orchestrating complex cross-workspace deployments.
+## Quick start
 
-## Key Capabilities Demonstrated
+You need Python 3.12 or newer, a Fabric capacity, and a service principal that is allowed
+to use Fabric APIs and create workspaces. The full list, including the two tenant settings
+and the Azure DevOps step people miss, is in
+[documentation/reference/getting-started.md](documentation/reference/getting-started.md).
 
-### Infrastructure as Code (IaC)
-- **Automated Fabric workspace setup and teardown**
-- **Dynamic environment provisioning**
-- **Capacity management and optimization**
-- **Resource lifecycle automation**
-
-### CI/CD & Deployment Strategies
-- **Multi-stage release pipelines** (dev → test → prod)
-- **Single-stage deployment** for targeted releases
-- **Octopus deployment patterns** for selective feature promotion
-- **Feature workspace automation** for isolated development
-
-### Quality & Validation
-- **Best Practice Analyzer (BPA) rule validation**
-- **Automated semantic model testing**
-- **Pull request validation workflows**
-- **Quality gates and approval processes**
-
-### Collaboration & Ways-of-Working
-- **Feature branch automation** with workspace provisioning
-- **Automated workspace synchronization**
-- **Cross-workspace reference management**
-- **Git integration with workspace source control**
-
-## Tooling and Technologies
-
-### Core Automation Stack
-- **Python automation framework** - Custom scripts for Fabric operations and orchestration
-- **fabric-cicd library** - Primary deployment and management tool for Fabric items
-- **Fabric CLI integration** - Native Fabric command-line operations
-- **Azure DevOps / GitHub** - CI/CD pipeline orchestration and source control
-
-### Validation & Quality
-- **Tabular Editor** 
-  - BPA rule validation during build processes
-  - TMDL format conversion and management
-  - Semantic model optimization and testing
-- **Custom BPA Rules** - Enterprise-grade validation rules for semantic models
-
-### Authentication & Security
-- **Service Principal authentication** - Secure API access patterns
-- **Environment-specific credentials** - Isolated security contexts
-- **Token management** - Automated credential refresh and rotation
-
-## Prerequisites
-
-To use FabricOps in your environment, you'll need:
-
-### Microsoft Fabric Requirements
-- **Microsoft Fabric capacity** (trial, F64, or higher paid SKU)
-- **Fabric workspace administrator permissions**
-- **Power BI Premium or Fabric capacity allocation**
-
-### Development Platform
-- **Azure DevOps** or **GitHub** account with permissions to create:
-  - Projects and repositories
-  - Service connections and secrets
-  - Pipeline definitions and workflows
-
-### Service Principal Setup
-- **Azure AD/Entra ID Service Principal** with:
-  - Access to Fabric REST APIs ([configuration guide](https://learn.microsoft.com/en-us/fabric/admin/service-admin-portal-developer))
-  - Appropriate Fabric workspace permissions
-  - Project Administrator role (Azure DevOps) or equivalent GitHub permissions
-
-### Fabric CLI Version Requirement
-**Fabric CLI version 1.0.0+ is required**
-
-Version 1.0.0 introduced the `-f`/`--force` flag in the `get` command to suppress warnings on sensitivity labels. The release notes state:
-> "Added a confirmation prompt in get to acknowledge that exported items do not include sensitivity labels; use -f to skip."
-
-Versions <1.0.0 do not support the `-f` switch and will cause automation scripts to fail.
-
-## Project Structure
-
-```
-├── .azure-pipelines/             # Azure DevOps pipeline definitions
-├── .github/                      # GitHub Actions workflows and templates
-├── automation/                   # Automation scripts and configuration
-│   ├── credentials/              # Credential templates and configuration
-│   ├── resources/               # Environment definitions and parameters
-│   │   ├── BPARules.json        # Custom Best Practice Analyzer rules
-│   │   ├── environments/        # Environment-specific configurations
-│   │   └── parameters/          # Deployment parameters and bindings
-│   └── scripts/                 # Core automation scripts
-│       ├── fabric_setup.py     # Infrastructure setup/teardown
-│       ├── fabric_release.py   # Solution deployment
-│       ├── fabric_feature_*    # Feature management automation
-│       ├── locale/             # Local development utilities
-│       └── modules/            # Reusable automation modules
-└── solution/                    # Fabric workspace items
-    ├── core/                    # Core infrastructure components
-    ├── ingest/                   # Data ingestion pipelines
-    ├── store/                    # Data storage (lakehouses)
-    ├── prepare/                  # Data preparation and transformation
-    ├── orchestrate/              # Orchestration pipelines
-    ├── model/                    # Semantic models (TMDL)
-    └── present/                  # Presentation layer (reports)
-```
-
-## Getting Started
-
-### Initial Setup
-
-1. **Create your repository**
-   ```bash
-   # Create new Azure DevOps project or GitHub repository
-   # Clone this repository as a template
-   git clone https://github.com/gronnerup/FabricOps.git
-   cd FabricOps
-   ```
-
-2. **Configure authentication**
-   ```bash
-   # Copy credential template and configure
-   cp automation/credentials/credentials_template.json automation/credentials/credentials.json
-   # Update with your Service Principal details
-   ```
-
-3. **Update environment configurations**
-   - Modify `automation/resources/environments/infrastructure.json`
-   - Configure environment-specific files (`infrastructure.dev.json`, etc.)
-   - Update Git provider settings in environment files
-
-4. **Run platform setup**
-   ```bash
-   # For Azure DevOps
-   python automation/scripts/locale/locale_setup_azuredevops.py
-   
-   # For GitHub
-   python automation/scripts/locale/locale_setup_github.py
-   ```
-
-5. **Deploy infrastructure**
-   - Commit changes and create pull request
-   - Run "Solution IaC – Setup" pipeline to provision Fabric infrastructure
-
-### Feature Development Workflow
-
-FabricOps supports automated feature development with dedicated workspaces:
-
-1. **Create feature branch**
-   ```bash
-   # Feature branch naming triggers workspace creation
-   git checkout -b "feature/orchestrate/new_pipeline"
-   ```
-
-2. **Automatic workspace provisioning**
-   - Feature workspaces are automatically created
-   - Only relevant layers are provisioned based on branch name
-   - Isolated development environment ready for use
-
-3. **Development and testing**
-   - Work in isolated feature workspace
-   - Automatic workspace synchronization
-   - Local testing and validation
-
-4. **Integration and deployment**
-   - Create pull request with BPA validation
-   - Automated workspace cleanup after merge
-   - Promotion through deployment pipeline
-
-### Deployment Options
-
-FabricOps provides multiple deployment strategies:
-
-#### Multi-Stage Deployment
-- **Automated progression** through environments
-- **Quality gates** between stages
-
-#### Single-Stage Deployment
-- **Targeted environment deployment**
-- **Runtime environment selection**
-- **Quick hotfix capabilities**
-
-#### Octopus Deployment
-- **Selective feature promotion**
-- **Branch-based deployment decisions**
-- **Advanced release orchestration**
-
-## Optional: Build Validation and Branch Policies
-
-It is strongly recommended to protect the `main` branch using branch policies.
-
-### Recommended Settings
-- Minimum number of required approvers
-- Optional requirement for linked work items
-
-### BPA Validation Setup
-
-**Azure DevOps:**
-1. Navigate to Branches
-2. Select Branch Policies  
-3. Under Build Validation:
-   - Add pipeline: PR – BPA Validation
-   - Trigger: Automatic
-   - Policy requirement: Required
-   - Expiration: 12 hours
-
-If BPA validation fails with severity 3 violations, the pull request will be blocked.
-
-**GitHub:**
-For GitHub, BPA validation is already configured using a `pull_request` trigger targeting `main`. The configuration is defined in `pr-validation.yaml`.
-
-**Note:** On some systems (especially Windows), cloning or working with this repository may fail due to long file paths. If you encounter path length issues, run the following command before cloning:
 ```bash
-git config --global core.longpaths true
+git clone https://github.com/gronnerup/FabricOps.git
+cd FabricOps
+pip install -r automation/resources/requirements.txt
+export PYTHONPATH=automation/src
+
+# Point the demo at your tenant: capacity name, admin group, git provider and repository.
+#   automation/resources/solutions/demo/platform.yml
+#   automation/resources/solutions/demo/platform.dev.yml
+
+python -m fabricops recipe validate                # every recipe, every environment
+python -m fabricops plan --environment dev         # what a setup would do, offline
+python -m fabricops setup --environment dev --dry-run
+python -m fabricops setup --environment dev        # workspaces, roles, git, connections
 ```
 
-## Advanced Features
+In a new tenant, run `references sync --environment dev --apply` after the first setup and
+commit the result. The report and the pipeline in the demo point at items by id, and those
+ids belong to whoever created them last.
 
-### Workspace Orchestration
-- **Cross-workspace dependency management**
-- **Automatic reference replacement** during deployment
-- **Environment-specific workspace binding**
-- **Intelligent workspace provisioning**
+The pipelines call the same code through the scripts in `automation/scripts/`. The
+variables they expect are listed in the getting-started page.
 
-### Connection Management
-- **Dynamic connection string generation**
-- **Environment-specific binding**
-- **Secure credential management**
-- **Automated connection updates**
+## Repository layout
 
-### Monitoring and Observability
-- **Deployment tracking and logging**
-- **Performance monitoring**
-- **Error handling and recovery**
-- **Audit trails and compliance**
+```
+├── .azure-pipelines/           Azure DevOps pipelines
+├── .github/workflows/          the same pipelines for GitHub Actions
+├── automation/
+│   ├── src/fabricops/          the package: recipe, engine, release, cli
+│   ├── scripts/                entry points the pipelines call
+│   ├── tests/                  the offline suite and the fake fab
+│   └── resources/
+│       ├── solutions/demo/     the demo recipe: platform.yml + one overlay per environment
+│       ├── parameters/         parameter.yml for fabric-cicd
+│       └── BPARules.json       Best Practice Analyzer rules for semantic models
+├── documentation/
+│   ├── reference/              getting started, the recipe format, feature storage, developing
+│   ├── specs/                  one file per epic: the design and the decisions
+│   └── research/               platform findings verified against Microsoft Learn
+└── solution/                   what Fabric syncs, one directory per workspace
+    ├── store/                  lakehouses
+    ├── engineering/            ingest, prepare, orchestrate, core
+    └── analytics/              model, present
+```
 
-## Additional Resources
+`solution/` mirrors the architecture: one workspace, one directory, and the layer
+structure on disk is the layer structure in the tenant. The recipe names the directory
+each layer syncs from, so a layer can move without anything else changing.
 
-### Conference Materials and Presentations
-For related slide decks, presentations, and session materials on Microsoft Fabric, Power BI, Automation, CI/CD, and DevOps best practices, visit:
+## Pipelines
 
-**[Session Archive Repository](https://github.com/gronnerup/SessionArchive)**
+| Pipeline | Runs when | Does |
+| --- | --- | --- |
+| `solution_setup` | manual | provisions an environment from the recipe |
+| `solution_cleanup` | manual | tears an environment down, with confirmation |
+| `solution_release_single_stage` | manual | deploys one environment |
+| `solution_release_multistages` | manual | dev, then test, then prod, with gates between |
+| `solution_release_octopus` | manual | selective promotion by branch |
+| `feature_fabric_branch` | a `feature/*` branch is pushed | creates that branch's workspaces |
+| `feature_fabric_cleanup` | a pull request to `main` closes, and nightly | removes the feature workspaces, syncs dev |
+| `feature_fabric_reap` | daily | deletes feature workspaces whose branch is gone, reports the rest |
+| `pr-validation` | a pull request to `main` | tests, recipes, sanitise scan and naming rules on Linux, BPA on Windows |
 
-This repository contains presentation materials, demo scripts, and additional resources from various community conferences and events covering topics such as:
-- Microsoft Fabric automation strategies
-- CI/CD implementation patterns
-- DevOps best practices for data platforms
-- Modern ways-of-working for analytics teams
+Register `pr-validation` as build validation on the `main` branch policy and it becomes
+one required check with two jobs. On GitHub the same two jobs are two workflow files,
+`pr-validation.yml` and `pr-automation-validation.yml`.
+
+## Feature branches
+
+```bash
+git checkout -b feature/engineering/new-support-table
+git push -u origin feature/engineering/new-support-table
+```
+
+The push creates the workspaces the `engineering` group selects in
+`solutions/demo/feature.engineering.yml`, each connected to the branch. Every feature
+workspace carries its branch, owner and base workspace in its description, so cleanup
+never has to parse a display name. Merge the pull request and the workspaces go, dev is
+synced with what changed, and any feature schemas are dropped.
+
+## Documentation
+
+* [Getting started](documentation/reference/getting-started.md): from an empty tenant to
+  a working environment, every command, exit codes, and what to check when it breaks.
+* [The recipe](documentation/reference/recipes.md): tokens, merge rules, connections,
+  items, deployment policy, references, feature recipes.
+* [Feature storage](documentation/reference/feature-storage.md): shared versus isolated
+  data on a feature branch, and the resolver notebooks use.
+* [Developing FabricOps](documentation/reference/development.md): layout, the fake `fab`
+  harness, and the conventions an action follows.
+* [Specs](documentation/specs/): the design, one epic per file, including the decisions
+  that turned out to be wrong.
+
+## Coming from the first version
+
+The rewrite keeps the entry points and the recipe you already have.
+
+* `infrastructure.json` and its environment overlays still resolve, unchanged. The new
+  `solutions/<name>/` layout is where the docs and the demo lead, and a repository with
+  exactly one solution needs no `--solution` flag.
+* `fabric_setup.py`, `fabric_release.py`, `fabric_feature_maintainance.py` and
+  `fabric_gitsync_env.py` are still the scripts the pipelines call. They now delegate to
+  the `fabricops` package, which is also a command line: `python -m fabricops --help`.
+* `solution/` moved from one directory per layer to three: `store/`, `engineering/` and
+  `analytics/`. The recipe's `git.directory` per layer is what changed, not the items.
+* `credentials.json` is a local fallback only. A flag or an environment variable always
+  wins, and pipelines should use their secret store.
+* Version 1 is tagged `v1` if you need it.
 
 ## Disclaimer
 
-**Use of this code is entirely at your own risk.**
-
-- This solution is provided as inspiration and a boilerplate reference
-- No guarantees are provided regarding correctness or future compatibility
-- Extensive testing in your environment is recommended before production use
-- Regular updates may be required to maintain compatibility with Fabric platform changes
+Use of this code is at your own risk. It is a reference and a boilerplate, tested against
+one tenant, and Fabric changes under it. Run `--dry-run` first, read the plan, and test in
+your own environment before you point it at anything that matters.
 
 ## Contributing
 
-FabricOps is continuously evolving to demonstrate the latest Microsoft Fabric capabilities and DevOps best practices. Contributions, feedback, and suggestions are welcome for improving the demonstration scenarios and automation capabilities.
+Issues and pull requests are welcome. The offline suite has to stay green
+(`python -m unittest discover -s automation/tests -t automation`), and anything touching
+the tenant should come with a fake `fab` test that proves the commands it sends.
+
+## More
+
+* [Session Archive](https://github.com/gronnerup/SessionArchive): slides and demo
+  material from conferences and community events.
+* [Peer insights](https://peerinsights.emono.dk): the blog.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-The demonstration datasets and examples are intended for learning and development purposes only. Please ensure compliance with your organization's data governance and security policies when adapting this framework for production use. 
+MIT. See [LICENSE](LICENSE). The demo data and examples are for learning and development
+only.

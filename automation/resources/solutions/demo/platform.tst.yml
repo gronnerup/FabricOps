@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schemas/solution.schema.json
+defaults:
+  merge_type: 2
+  environment: tst
+  permissions:
+    Admin:
+    - type: Group
+      id: 11111111-1111-1111-1111-111111111111
+layers:
+  Core: {}
+  Store: {}
+  Prepare: {}
+  Ingest: {}
+  Orchestrate: {}
+  Model: {}
+  Present: {}

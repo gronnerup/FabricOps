@@ -5,6 +5,16 @@ on:
     branches:
     - main
     types: [closed]
+  # Also runnable by hand, against whichever branch you select. A closed-PR event does not
+  # let you choose which copy of this workflow and of the scripts actually runs, which
+  # makes it a poor way to test a teardown - and re-running a failed cleanup should not
+  # require reopening and reclosing a pull request.
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Feature branch whose workspaces should be deleted'
+        required: true
+        type: string
 
 jobs:
   cleanup-feature:
@@ -15,7 +25,7 @@ jobs:
       PYTHONIOENCODING: utf-8
       PYTHONUNBUFFERED: 1
       DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
-      VSO_FORCE_UTF8_OUTPUT: true'
+      VSO_FORCE_UTF8_OUTPUT: true
       TENANT_ID: ${{ secrets.SPN_TENANT_ID }}
       CLIENT_ID: ${{ secrets.SPN_CLIENT_ID }}
       CLIENT_SECRET: ${{ secrets.SPN_CLIENT_SECRET }}
@@ -23,11 +33,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # the sync diffs the merge against its parent
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: automation/resources/requirements.txt
 
       - name: Install dependencies
         run: |
@@ -37,10 +51,11 @@ jobs:
       - name: Run Fabric feature maintenance script
         run: |
           python -u automation/scripts/fabric_feature_maintainance.py \
-            --branch_name ${{ github.head_ref }} \
+            --branch_name "${{ github.event.inputs.branch_name || github.head_ref }}" \
             --action delete
 
-      - name: Synchronize dev workspaces
+      # Fabric never pulls on its own, so main moving forward leaves dev behind until
+      # something asks it to catch up.
+      - name: Synchronize dev workspaces with main
         run: |
-          python -u automation/scripts/fabric_gitsync_env.py \
-            --environment dev \
+          python -u automation/scripts/fabric_gitsync_env.py --environment dev --changed_since HEAD~1

@@ -1,14 +1,39 @@
 pr: none
 
+# A full sync every night, whatever changed: the merge-time sync only checks the layers
+# whose folder the merge touched, and a layer can need a sync without its folder
+# changing (a deferred report whose model has since arrived). This closes that gap.
+schedules:
+  - cron: '0 3 * * *'
+    displayName: Nightly full dev sync
+    branches:
+      include: [main]
+    always: true
+
 trigger: 
   branches:
     include:
     - main
 
+# A merge to main is the normal trigger, but it gives you no say over which copy of the
+# scripts runs - which makes it a poor way to test a teardown, and means a cleanup that
+# failed can only be retried by merging something else. Queue the pipeline manually and
+# supply the branch instead.
+parameters:
+  - name: log_level
+    displayName: 'Log level (debug prints every fab command; trace adds API responses)'
+    type: string
+    default: 'info'
+    values: [ 'info', 'debug', 'trace' ]
+  - name: branch_name
+    displayName: 'Feature branch to clean up (manual runs only)'
+    type: string
+    default: ''
+
 jobs:
 - job: cleanup_feature
-  condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
-  displayName: 'Cleanup Fabric feature workspaces'
+  condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'Manual', 'Schedule'))
+  displayName: 'Cleanup feature workspaces, then sync dev with main'
   pool:
     vmImage: 'ubuntu-latest'
 
@@ -21,11 +46,23 @@ jobs:
     value: true
   - name: VSO_FORCE_UTF8_OUTPUT
     value: true
+  - name: PIP_CACHE_DIR
+    value: $(Pipeline.Workspace)/.pip
   - group: Fabric_Automation
 
   steps:
+    # Full history, so the merge-time sync can diff the merge against its parent.
+    - checkout: self
+      fetchDepth: 0
+
+    # A manual run says which branch it means; a merge has to be traced back to its PR.
+    - bash: echo "##vso[task.setvariable variable=SourceRefName]${{ parameters.branch_name }}"
+      displayName: 'Use the branch supplied by hand'
+      condition: ne('${{ parameters.branch_name }}', '')
+
     - task: Bash@3
       displayName: 'Get sourceRefName from pullrequestquery endpoint'
+      condition: eq('${{ parameters.branch_name }}', '')
       inputs:
         targetType: 'inline'
         script: |
@@ -62,15 +99,21 @@ jobs:
         SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
     - task: UsePythonVersion@0
-      condition: and(succeeded(), ne(variables['SourceRefName'], '')) 
       inputs:
         versionSpec: '3.12'
+
+    - task: Cache@2
+      displayName: 'Cache pip'
+      inputs:
+        key: 'pip | "$(Agent.OS)" | automation/resources/requirements.txt'
+        restoreKeys: |
+          pip | "$(Agent.OS)"
+        path: $(PIP_CACHE_DIR)
 
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
       displayName: 'Install Python dependencies'
-      condition: and(succeeded(), ne(variables['SourceRefName'], ''))
       workingDirectory: '$(Build.SourcesDirectory)/automation/resources'
 
     - script: python -u automation/scripts/fabric_feature_maintainance.py --action delete --branch_name $(SourceRefName)
@@ -80,11 +123,19 @@ jobs:
         TENANT_ID: $(SPN_TENANT_ID)
         CLIENT_ID: $(SPN_CLIENT_ID)
         CLIENT_SECRET: $(SPN_CLIENT_SECRET)
+        FABOPS_LOG_LEVEL: ${{ parameters.log_level }}
 
-    - script: python -u automation/scripts/fabric_gitsync_env.py --environment dev
-      displayName: 'Run Fabric git sync on dev environment'
-      condition: and(succeeded(), ne(variables['SourceRefName'], ''))
+    # Fabric never pulls on its own, so main moving forward leaves dev behind until something
+    # asks it to catch up. Unconditional: this is about main having changed, not about a PR
+    # having closed, so a direct push to main syncs dev too.
+    - bash: |
+        args=""
+        # A merge names its changes; a scheduled or manual run checks everything.
+        if [ "$BUILD_REASON" = "IndividualCI" ]; then args="--changed_since HEAD~1"; fi
+        python -u automation/scripts/fabric_gitsync_env.py --environment dev $args
+      displayName: 'Synchronize dev workspaces with main'
       env:
         TENANT_ID: $(SPN_TENANT_ID)
         CLIENT_ID: $(SPN_CLIENT_ID)
         CLIENT_SECRET: $(SPN_CLIENT_SECRET)
+        FABOPS_LOG_LEVEL: ${{ parameters.log_level }}

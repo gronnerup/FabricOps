@@ -1,56 +1,92 @@
-import os, argparse, json
-import modules.fabric_cli_functions as fabcli
-import modules.misc_functions as misc
+#!/usr/bin/env python
+"""Bring an environment's workspaces back in step with its branch - entry point.
 
-default_environment = "dev"
+The step a merge into the branch that dev is connected to should run. Fabric never pulls on
+its own: git integration needs an explicit `updateFromGit`, so a branch moving forward
+leaves the workspaces behind until something asks them to catch up.
 
-# Get arguments 
-parser = argparse.ArgumentParser(description="Fabric feature maintainance arguments")
-parser.add_argument("--tenant_id", required=False, default=os.environ.get('TENANT_ID'), help="Azure Active Directory (Microsoft Entra ID) tenant ID used for authenticating with Fabric APIs. Defaults to the TENANT_ID environment variable.")
-parser.add_argument("--client_id", required=False, default=os.environ.get('CLIENT_ID'), help="Client ID of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_ID environment variable.")
-parser.add_argument("--client_secret", required=False, default=os.environ.get('CLIENT_SECRET'), help="Client secret of the Azure AD application registered for accessing Fabric APIs. Defaults to the CLIENT_SECRET environment variable.")
-parser.add_argument("--environment", required=False, default=default_environment, help="The environment to operate on. Defaults to a predefined variable `environment`.")
+A thin wrapper over `fabricops setup --only git`, which converges the git state of every
+layer and nothing else - no roles, no properties, no connections. Workspaces are included
+because a git action needs their ids, and they are a read when the workspace exists.
 
-args = parser.parse_args()
-tenant_id = args.tenant_id
-client_id = args.client_id
-client_secret = args.client_secret
-environment = args.environment
+    python automation/scripts/fabric_gitsync_env.py --environment dev
+    python automation/scripts/fabric_gitsync_env.py --environment dev --dry-run
 
-# Load JSON environment files (main and environment specific) and merge
-main_json = misc.load_json(os.path.join(os.path.dirname(__file__), f'../resources/environments/infrastructure.json'))
-env_json = misc.load_json(os.path.join(os.path.dirname(__file__), f'../resources/environments/infrastructure.{environment}.json'))
-env_definition = misc.merge_json(main_json, env_json)
+What it gains over the previous implementation, which called the Fabric CLI directly:
+`gitConnectionState` is handled as the three states Fabric actually reports, an item whose
+committed references cannot resolve defers with the command that fixes it instead of
+failing on `DiscoverDependenciesFailed`, and conflicts follow the recipe's
+`conflict_resolution` policy rather than always preferring the remote.
 
-if env_definition:
-    solution_name = env_definition.get("name")
-    layers = env_definition.get("layers")
+The previous implementation is kept at automation/scripts/legacy/fabric_gitsync_env.py.
+"""
 
-    fabcli.run_command("config set encryption_fallback_enabled true")
-    fabcli.run_command(f"auth login -u {client_id} -p {client_secret} --tenant {tenant_id}")
+from __future__ import annotations
 
-    # Perform workspace synchronization for all layers
-    misc.print_header(f"Synchronizing environment workspaces")
-    for layer, layer_definition in layers.items():
-            workspace_name = solution_name.format(layer=layer, environment=environment)
-            workspace_name_escaped = workspace_name.replace("/", "\\/")
+import argparse
+import os
+import pathlib
+import sys
 
-            if layer_definition.get("git_synchronize_on_commit", True) and not layer_definition.get("git_disconnect_after_initialize", False):
-                misc.print_info(f"Synchronizing workspace {workspace_name_escaped} with latest changes from Git repo...", bold=True, end="")
-                workspace_id = fabcli.run_command(f"get '{workspace_name_escaped}.Workspace' -q id -f").strip()
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-                git_status = fabcli.get_git_status(workspace_id)
-                if git_status is None:
-                    misc.print_warning(" ⚠ Git synchronization not possible.")
-                    continue
-                elif git_status.get("workspaceHead") == git_status.get("remoteCommitHash"):
-                    misc.print_warning(" ⚠ Already up to date.")
-                    continue
-                elif len(git_status.get("changes")) == 0:
-                    misc.print_warning(" ⚠ No changes detected.")
-                    continue
-                else:
-                    fabcli.update_workspace_from_git(workspace_id, git_status.get("remoteCommitHash"), git_status.get("workspaceHead"))
-                    misc.print_success(" ✔")
+from fabricops.cli import main as fabricops_main  # noqa: E402  (after sys.path setup)
 
-    misc.print_success(f"Environment workspaces synchronized!",bold = True)
+DEFAULT_RESOURCES = str(pathlib.Path(__file__).resolve().parents[1] / "resources")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Synchronise an environment's workspaces with its branch")
+    parser.add_argument("--environment", default=os.environ.get("FABOPS_ENVIRONMENT", "dev"))
+    parser.add_argument("--solution", default=os.environ.get("FABOPS_SOLUTION"))
+    parser.add_argument("--layers", default=None, help="Comma-separated subset of layers. Optional.")
+    parser.add_argument(
+        "--changed_since",
+        default=os.environ.get("FABOPS_CHANGED_SINCE") or None,
+        help="Only sync layers whose folder changed since this git ref, e.g. HEAD~1 on a merge. "
+             "Falls back to all layers when the ref cannot be diffed.",
+    )
+    parser.add_argument("--resources", default=DEFAULT_RESOURCES)
+    parser.add_argument("--tenant_id", default=os.environ.get("TENANT_ID"))
+    parser.add_argument("--client_id", default=os.environ.get("CLIENT_ID"))
+    parser.add_argument("--client_secret", default=os.environ.get("CLIENT_SECRET"))
+    parser.add_argument("--github_pat", default=os.environ.get("GITHUB_PAT"))
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--log-level", default=os.environ.get("FABOPS_LOG_LEVEL"))
+    parser.add_argument("--trace-file", default=os.environ.get("FABOPS_TRACE_FILE"))
+    return parser.parse_args(argv)
+
+
+def build_argv(args: argparse.Namespace) -> list[str]:
+    argv: list[str] = ["--resources", args.resources]
+    if args.solution:
+        argv += ["--solution", args.solution]
+    if args.log_level:
+        argv += ["--log-level", args.log_level]
+    if args.trace_file:
+        argv += ["--trace-file", args.trace_file]
+    if args.dry_run:
+        argv.append("--dry-run")
+    for flag, value in (
+        ("--tenant-id", args.tenant_id),
+        ("--client-id", args.client_id),
+        ("--client-secret", args.client_secret),
+        ("--github-pat", args.github_pat),
+    ):
+        if value:
+            argv += [flag, value]
+
+    argv += ["setup", "--environment", args.environment, "--only", "git"]
+    if args.layers:
+        argv += ["--layers", args.layers]
+    if args.changed_since:
+        argv += ["--changed-since", args.changed_since]
+    return argv
+
+
+def main(argv: list[str] | None = None) -> int:
+    return fabricops_main(build_argv(parse_args(argv)))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -45,16 +45,31 @@ jobs:
         pip install -r automation/resources/requirements.txt
       displayName: 'Install Python dependencies'
 
-    - script: python -u automation/scripts/fabric_release.py --environment ${{ parameters.environment }} --repo_path "$(Pipeline.Workspace)/solution" --is_debug ${{ parameters.debug_logging }}
+    # --repo_path is now the repository root; the layer directory comes from the
+    # recipe's git.directory, which already carries the solution/ prefix.
+    - script: python -u automation/scripts/fabric_release.py --environment ${{ parameters.environment }} --repo_path "$(Pipeline.Workspace)" --is_debug ${{ parameters.debug_logging }}
       displayName: 'Run Fabric release script'
       env:
         TENANT_ID: $(SPN_TENANT_ID)
         CLIENT_ID: $(SPN_CLIENT_ID)
         CLIENT_SECRET: $(SPN_CLIENT_SECRET)
 
+    # These three steps deploy the SQL Database schema, which only applies when the solution
+    # ships a dacpac. See solution/engineering/core/README.md.
+    - bash: |
+        if compgen -G "$(Pipeline.Workspace)/solution/**/bin/Debug/*.dacpac" > /dev/null 2>&1; then
+          echo "##vso[task.setvariable variable=hasDacpac]true"
+          echo "dacpac found"
+        else
+          echo "##vso[task.setvariable variable=hasDacpac]false"
+          echo "no dacpac; skipping the database deployment"
+        fi
+      displayName: 'Detect dacpac'
+
     - task: Bash@3
       name: generate_connectionstring
       displayName: 'Generate SQL connection string'
+      condition: and(succeeded(), eq(variables['hasDacpac'], 'true'))
       inputs:
         targetType: 'inline'
         script: |
@@ -73,6 +88,7 @@ jobs:
 
     - task: Bash@3
       displayName: 'Install sqlpackage'
+      condition: and(succeeded(), eq(variables['hasDacpac'], 'true'))
       inputs:
         targetType: 'inline'
         script: |
@@ -82,12 +98,13 @@ jobs:
 
     - task: Bash@3
       displayName: 'Deploy database'
+      condition: and(succeeded(), eq(variables['hasDacpac'], 'true'))
       inputs:
         targetType: 'inline'
         script: |
           echo "$(connection_string)"
 
           ./sqlpackage/sqlpackage /Action:Publish \
-            /SourceFile:"$(Pipeline.Workspace)/solution/core/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac" \
+            /SourceFile:"$(Pipeline.Workspace)/solution/engineering/core/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac" \
             /TargetConnectionString:"$(connection_string)" \
             /p:DropObjectsNotInSource=false /p:AllowIncompatiblePlatform=True /p:ExcludeObjectType=DatabaseRoles /p:ExcludeObjectType=Users

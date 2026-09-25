@@ -37,11 +37,11 @@ jobs:
         run: |
           $toolPath = "${{ github.workspace }}\_tools\TabularEditor\TabularEditor.exe"
           $rulesPath = "${{ github.workspace }}\automation\resources\BPARules.json"
-          $modelsPath = "${{ github.workspace }}\solution\model"
+          $modelsPath = "${{ github.workspace }}\solution\analytics\model"
           
           Write-Host "Searching for semantic models in: $modelsPath"
           
-          # Get all first-level folders in solution/model
+          # Get all first-level folders in solution/analytics/model
           $modelFolders = Get-ChildItem -Path $modelsPath -Directory
           
           if ($modelFolders.Count -eq 0) {
