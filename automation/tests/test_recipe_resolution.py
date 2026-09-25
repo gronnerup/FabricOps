@@ -128,6 +128,23 @@ class ResolutionTests(unittest.TestCase):
         resolved = resolver.resolve_feature(self.resources, solution="s", group="backend")
         self.assertEqual([p.name for p in resolved.files], ["feature.yml"])
 
+    def test_feature_uses_the_lone_solution_when_none_is_named(self):
+        # The public repository again: solutions/demo/feature.yml and nothing else.
+        self.write("solutions/demo/platform.yml")
+        self.write("solutions/demo/feature.yml")
+        self.write("solutions/demo/feature.engineering.yml")
+        resolved = resolver.resolve_feature(self.resources, group="engineering")
+        self.assertEqual(resolved.base, self.resources / "solutions" / "demo" / "feature.yml")
+        self.assertEqual([p.name for p in resolved.overlays], ["feature.engineering.yml"])
+        self.assertTrue(resolver.feature_group_exists(self.resources, group="engineering"))
+
+    def test_a_legacy_feature_file_still_beats_the_lone_solution(self):
+        self.write("solutions/demo/platform.yml")
+        self.write("solutions/demo/feature.yml")
+        self.write("environments/feature.json", "{}")
+        resolved = resolver.resolve_feature(self.resources)
+        self.assertEqual(resolved.base.name, "feature.json")
+
     def test_feature_falls_back_to_environments(self):
         self.write("environments/feature.json", "{}")
         resolved = resolver.resolve_feature(self.resources, solution="s")

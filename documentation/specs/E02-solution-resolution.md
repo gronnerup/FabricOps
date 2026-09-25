@@ -33,7 +33,7 @@ For `--solution my-data-platform --environment dev`:
 | 1 | `resources/solutions/my-data-platform/platform.{yml,yaml,json}` | `.../platform.dev.{yml,yaml,json}` |
 | 2 | `resources/environments/my-data-platform.{yml,yaml,json}` | `resources/environments/my-data-platform.dev.{…}` |
 | 3 *(fallback)* | `resources/environments/infrastructure.{yml,yaml,json}` | `resources/environments/infrastructure.dev.{…}` |
-| 4 *(no `--solution` only)* | the single entry under `resources/solutions/` when exactly one exists | its `platform.dev.{…}` |
+| 4 *(no `--solution` only)* | the single entry under `resources/solutions/` when exactly one exists; the same last resort applies to `feature.*` | its `platform.dev.{…}` |
 
 **Decision 3:** order 1 is what the docs, the demo and blog post #4 lead with — a
 solution folder also holds that solution's `parameter.yml` and `tags.yml`, so everything

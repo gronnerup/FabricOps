@@ -113,21 +113,32 @@ def resolve_platform(
     # that ships only `solutions/demo/` must work without every command naming it. Two or
     # more is a real ambiguity, and picking one silently would be worse than stopping.
     if not solution:
-        defined = [entry for entry in list_solutions(resources) if entry["layout"] == "solutions"]
-        if len(defined) == 1:
-            only = str(defined[0]["name"])
+        only = _lone_solution(resources)
+        if only:
             return resolve_platform(resources, solution=only, environment=environment)
-        if len(defined) > 1:
-            names = ", ".join(str(entry["name"]) for entry in defined)
-            raise RecipeError(
-                f"this repository defines {len(defined)} solutions and none is named",
-                hint=f"Pass --solution <name> (or set FABOPS_SOLUTION). Defined: {names}",
-            )
 
     raise RecipeError(
         f"no platform recipe found for solution '{solution or 'default'}'",
         hint="Searched:\n    " + "\n    ".join(str(path) for path in searched),
     )
+
+
+def _lone_solution(resources: pathlib.Path) -> str | None:
+    """The one solution under resources/solutions/ when nothing was named, else None.
+
+    Two or more with none named is an error that lists them: guessing would be worse
+    than stopping.
+    """
+    defined = [entry for entry in list_solutions(resources) if entry["layout"] == "solutions"]
+    if len(defined) == 1:
+        return str(defined[0]["name"])
+    if len(defined) > 1:
+        names = ", ".join(str(entry["name"]) for entry in defined)
+        raise RecipeError(
+            f"this repository defines {len(defined)} solutions and none is named",
+            hint=f"Pass --solution <name> (or set FABOPS_SOLUTION). Defined: {names}",
+        )
+    return None
 
 
 def feature_directories(
@@ -136,6 +147,12 @@ def feature_directories(
     resources = pathlib.Path(resources)
     directories = [resources / "solutions" / (solution or "default")]
     directories.append(resources / "environments")
+    if not solution:
+        # Same last resort as the platform recipe: the one solution the repository defines.
+        # After the legacy folder, so an existing clone keeps reading environments/feature.*.
+        only = _lone_solution(resources)
+        if only:
+            directories.append(resources / "solutions" / only)
     return directories
 
 

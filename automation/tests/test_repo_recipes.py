@@ -13,8 +13,22 @@ from fabricops import recipe
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 RESOURCES = REPO_ROOT / "automation" / "resources"
 
+# The internal repository keeps the legacy environments/*.json layout; the public one ships
+# solutions/demo/ in canonical YAML. The golden tests run wherever any recipe is defined,
+# and only the checks about legacy normalisation need the legacy files.
+DEFINED = bool(recipe.resolver.list_solutions(RESOURCES)) if RESOURCES.is_dir() else False
+LEGACY = (RESOURCES / "environments").is_dir()
 
-@unittest.skipUnless((RESOURCES / "environments").is_dir(), "repository recipes not present")
+
+def _solutions():
+    """(solution name or None, environment) for everything this repository defines."""
+    for entry in recipe.resolver.list_solutions(RESOURCES):
+        name = None if entry["name"] == "default" else str(entry["name"])
+        for environment in entry["environments"] or [None]:
+            yield name, environment
+
+
+@unittest.skipUnless(DEFINED, "repository recipes not present")
 class RepoRecipeTests(unittest.TestCase):
     def test_every_solution_and_environment_loads_and_validates(self):
         solutions = recipe.resolver.list_solutions(RESOURCES)
@@ -32,14 +46,15 @@ class RepoRecipeTests(unittest.TestCase):
         self.assertGreaterEqual(checked, 1)
 
     def test_workspace_names_are_unique_per_environment(self):
-        for environment in ("dev", "tst", "prd"):
-            with self.subTest(environment=environment):
-                loaded = recipe.load_platform(RESOURCES, environment=environment)
+        for solution, environment in _solutions():
+            with self.subTest(solution=solution, environment=environment):
+                loaded = recipe.load_platform(RESOURCES, solution=solution, environment=environment)
                 names = [loaded.workspace_name(layer) for layer in loaded.layers]
                 self.assertEqual(len(names), len(set(names)), "layer workspace names must be unique")
                 for name in names:
                     self.assertNotIn("{", name, "every token must be resolved")
 
+    @unittest.skipUnless(LEGACY, "no legacy environments/ recipes here")
     def test_legacy_json_recipes_are_normalised(self):
         loaded = recipe.load_platform(RESOURCES, environment="dev")
         self.assertTrue(loaded.notes, "legacy keys should be reported as folded")
@@ -85,7 +100,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-@unittest.skipUnless((RESOURCES / "environments").is_dir(), "repository recipes not present")
+@unittest.skipUnless(DEFINED, "repository recipes not present")
 class BareValidateTests(unittest.TestCase):
     """`recipe validate` with nothing named must not fail a valid repo.
 

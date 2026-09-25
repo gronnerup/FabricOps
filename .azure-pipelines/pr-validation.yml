@@ -55,7 +55,14 @@ jobs:
         env:
           PYTHONPATH: automation/src
 
-      - script: python -m fabricops sanitise --report-only
+      # The export policy is the internal repository's file and is never exported, so a
+      # clone of the public repository has nothing to scan against.
+      - script: |
+          if [ -f automation/resources/export.yml ]; then
+            python -m fabricops sanitise --report-only
+          else
+            echo "no automation/resources/export.yml here - nothing to scan against"
+          fi
         displayName: 'Scan for tenant-specific values'
         env:
           PYTHONPATH: automation/src
