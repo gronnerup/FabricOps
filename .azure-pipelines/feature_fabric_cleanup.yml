@@ -89,6 +89,10 @@ jobs:
 
           if [ "$SOURCE_REF" == "null" ] || [ -z "$SOURCE_REF" ]; then
             echo "No sourceRefName found for commit $COMMIT_ID"
+          elif [[ "$SOURCE_REF" != refs/heads/feature/* ]]; then
+            # Only feature/* branches have workspaces. A release branch or a hotfix merged to
+            # main closes a pull request too, and there is nothing of its name to delete.
+            echo "'$SOURCE_REF' is not a feature/* branch - no workspaces to delete; dev still syncs below"
           else
             echo "Found sourceRefName: $SOURCE_REF"
             echo "##vso[task.setvariable variable=SourceRefName]$SOURCE_REF"
