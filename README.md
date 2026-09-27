@@ -10,10 +10,8 @@ provisions it, keeps it in step with its branch, gives every feature branch its 
 workspaces and tears them down again, and deploys content through environments with
 `fabric-cicd`. It runs locally, from GitHub Actions and from Azure DevOps.
 
-It is the companion repository to the blog series
-[Fabric Automation at Scale: From Chaos to Confidence](https://peerinsights.emono.dk/series/fabric-automation-at-scale),
-and it ships a small working solution so every command here can be run against a tenant
-of your own.
+It ships a small working solution so every command here can be run against a tenant of
+your own.
 
 ## What it does
 
@@ -83,9 +81,7 @@ variables they expect are listed in the getting-started page.
 │       ├── parameters/         parameter.yml for fabric-cicd
 │       └── BPARules.json       Best Practice Analyzer rules for semantic models
 ├── documentation/
-│   ├── reference/              getting started, the recipe format, feature storage, developing
-│   ├── specs/                  one file per epic: the design and the decisions
-│   └── research/               platform findings verified against Microsoft Learn
+│   └── reference/              getting started, the recipe format, feature storage, developing
 └── solution/                   what Fabric syncs, one directory per workspace
     ├── store/                  lakehouses
     ├── engineering/            ingest, prepare, orchestrate, core
@@ -137,8 +133,6 @@ synced with what changed, and any feature schemas are dropped.
   data on a feature branch, and the resolver notebooks use.
 * [Developing FabricOps](documentation/reference/development.md): layout, the fake `fab`
   harness, and the conventions an action follows.
-* [Specs](documentation/specs/): the design, one epic per file, including the decisions
-  that turned out to be wrong.
 
 ## Coming from the first version
 
@@ -172,7 +166,6 @@ the tenant should come with a fake `fab` test that proves the commands it sends.
 
 * [Session Archive](https://github.com/gronnerup/SessionArchive): slides and demo
   material from conferences and community events.
-* [Peer insights](https://peerinsights.emono.dk): the blog.
 
 ## License
 

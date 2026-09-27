@@ -404,7 +404,7 @@ class SetProperties(Action):
         changed: list[str] = []
         for query, desired in self.properties.items():
             # Compare in a dry run too. Reads are allowed there, and drift detection
-            # (E03-S8) depends on this reporting "already up to date" honestly.
+            # depends on this reporting "already up to date" honestly.
             if _current_matches(ctx, self.path, query, desired):
                 continue
             ctx.cli.set_property(self.path, query, desired)
@@ -466,7 +466,7 @@ def _role_already_assigned(ctx: "RunContext", path: FabPath, principal: str, rol
     """Read-compare-write for role assignments.
 
     Without this, every run reassigns every role and reports `updated`, which makes a
-    nightly drift check (E03-S8) permanently red for reasons nobody can act on.
+    nightly drift check permanently red for reasons nobody can act on.
     """
     for entry in ctx.cli.acl_get(path):
         assigned = str(entry.get("role") or "")

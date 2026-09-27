@@ -63,9 +63,9 @@ class AllowlistTests(SanitiseTestCase):
 
     def test_exclusions_win_over_inclusions(self):
         self.write("documentation/.DS_Store", "junk")
-        self.write("documentation/specs/E01.md", "content\n")
+        self.write("documentation/reference/page.md", "content\n")
         relative = [path.relative_to(self.root).as_posix() for path in exportable_files(self.root, self.policy)]
-        self.assertEqual(relative, ["documentation/specs/E01.md"])
+        self.assertEqual(relative, ["documentation/reference/page.md"])
 
 
 class ScanTests(SanitiseTestCase):
@@ -78,14 +78,14 @@ class ScanTests(SanitiseTestCase):
 
     def test_a_denied_path_inside_the_export_set_still_fails(self):
         """This one really would be published, so it has to block."""
-        self.write("documentation/specs/credentials.json", '{"tenant": "x"}')
-        self.policy.deny_paths.append("documentation/specs/credentials.json")
+        self.write("documentation/reference/credentials.json", '{"tenant": "x"}')
+        self.policy.deny_paths.append("documentation/reference/credentials.json")
         [finding] = [f for f in scan(self.root, self.policy) if "denied path" in f.kind]
         self.assertEqual(finding.kind, "denied path")
         self.assertFalse(finding.informational)
 
     def test_tenant_values_are_reported_with_a_line_number(self):
-        self.write("documentation/specs/E01.md", "line one\ncapacity: Contoso-Trial-01\n")
+        self.write("documentation/reference/page.md", "line one\ncapacity: Contoso-Trial-01\n")
         findings = scan(self.root, self.policy)
         self.assertEqual(findings[0].kind, "tenant value")
         self.assertEqual(findings[0].line, 2)
@@ -131,14 +131,14 @@ class ScanTests(SanitiseTestCase):
         self.assertEqual(scan(self.root, self.policy), [])
 
     def test_strict_mode_flags_unlisted_guids(self):
-        self.write("documentation/specs/E01.md", "id: aaaaaaaa-0000-1111-2222-bbbbbbbbbbbb\nid: 12345678-1234-1234-1234-123456789abc\n")
+        self.write("documentation/reference/page.md", "id: aaaaaaaa-0000-1111-2222-bbbbbbbbbbbb\nid: 12345678-1234-1234-1234-123456789abc\n")
         self.assertEqual(scan(self.root, self.policy), [])
         strict = scan(self.root, self.policy, strict=True)
         self.assertEqual([finding.line for finding in strict], [2])
 
     def test_a_clean_tree_has_no_findings(self):
         self.write("automation/src/fabricops/cli.py", "print('hi')\n")
-        self.write("documentation/specs/E01.md", 'capacity: "{env:FABRIC_CAPACITY}"\n')
+        self.write("documentation/reference/page.md", 'capacity: "{env:FABRIC_CAPACITY}"\n')
         self.assertEqual(scan(self.root, self.policy), [])
 
     def test_summary_counts_by_kind(self):

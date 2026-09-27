@@ -2,7 +2,7 @@
 
 Everything downstream - planner, release, feature flow, parameter generation - sees only
 canonical keys. Legacy spellings and the items-keyed-by-type shape are supported
-permanently (decision 4), so this module is where the first generation of FabricOps
+permanently, so this module is where the first generation of FabricOps
 recipes is met and translated.
 """
 

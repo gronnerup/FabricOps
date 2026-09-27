@@ -1,6 +1,6 @@
 """The single place FabricOps invokes the Fabric CLI.
 
-Design rules (documentation/specs/E04):
+Design rules:
 
 * argv lists, never interpolated shell strings - no quoting, no escaping helpers;
 * JSON in, JSON out - `exists`/`get` are parsed, never string-compared;

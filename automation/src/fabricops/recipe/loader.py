@@ -1,7 +1,7 @@
 """Load a recipe file - JSON or YAML - into a plain dict.
 
 Both formats parse to the same structure, so there is no on-disk translation step: the
-canonical thing is the *model*, not a file format (documentation/specs/E01).
+canonical thing is the *model*, not a file format.
 """
 
 from __future__ import annotations

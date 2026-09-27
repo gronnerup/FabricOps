@@ -1,4 +1,4 @@
-"""Item definitions (E03-S4) and drift detection (E03-S8)."""
+"""Item definitions and drift detection."""
 
 import json
 import pathlib

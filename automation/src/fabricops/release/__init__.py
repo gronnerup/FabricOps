@@ -1,4 +1,4 @@
-"""Releasing a solution into an environment with fabric-cicd (see documentation/specs/E09)."""
+"""Releasing a solution into an environment with fabric-cicd."""
 
 from __future__ import annotations
 

@@ -155,7 +155,7 @@ def build_feature_plan(
                 )
             )
 
-        # The self-describing stamp cleanup reads (E08-S3). Tags would be the nicer query
+        # The self-describing stamp cleanup reads. Tags would be the nicer query
         # surface, but they need a tenant admin to create and a recipe may declare none,
         # so the description is the record that is always there.
         properties = {
@@ -203,7 +203,7 @@ def build_feature_plan(
                 index += 1
 
         if developer_object_id and not _is_object_id(developer_object_id):
-            # E08-S5 says fall back to the recipe's group permissions with a warning when the
+            # Fall back to the recipe's group permissions with a warning when the
             # identity cannot be resolved. Failing the whole run over an optional convenience
             # is not that - and the value that gets here wrongly is usually a CI actor id.
             warnings.append(

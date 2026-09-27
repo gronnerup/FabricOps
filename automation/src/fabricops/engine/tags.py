@@ -1,4 +1,4 @@
-"""Tags as extended properties (documentation/specs/E05).
+"""Tags as extended properties.
 
 Constraints this design works around, all verified:
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover
 MAX_TAGS_PER_OBJECT = 10
 MAX_TAG_NAME_LENGTH = 40
 
-# Decision 6: a fixed managed-key list, so tags can be parsed back into properties.
+# A fixed managed-key list, so tags can be parsed back into properties.
 MANAGED_KEYS = ("ManagedBy", "Solution", "Env", "Layer", "Lifecycle", "Owner", "Branch", "Retain")
 
 

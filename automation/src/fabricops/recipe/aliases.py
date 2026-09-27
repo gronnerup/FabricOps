@@ -1,4 +1,4 @@
-"""Legacy key aliases - permanent, per decision 4.
+"""Legacy key aliases - permanent.
 
 Recipes written for the first generation of FabricOps keep working forever. Aliases are
 applied by the loader *before* validation, so everything downstream sees canonical names

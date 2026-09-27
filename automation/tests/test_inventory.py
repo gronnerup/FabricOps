@@ -1,4 +1,4 @@
-"""Feature workspace inventory and TTL reaping (E08-S2, E08-S3)."""
+"""Feature workspace inventory and TTL reaping."""
 
 import unittest
 from datetime import datetime, timedelta, timezone

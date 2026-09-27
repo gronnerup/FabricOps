@@ -1,6 +1,6 @@
 """Typed errors and process exit codes for FabricOps.
 
-Exit codes are part of the contract with CI (see documentation/specs/E04):
+Exit codes are part of the contract with CI :
 
     0  success (or a plan was produced with --dry-run)
     1  one or more actions failed

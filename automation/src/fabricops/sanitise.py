@@ -1,6 +1,6 @@
 """The gate that stands between the internal repository and the public one.
 
-Two layers, in this order (documentation/specs/E11):
+Two layers, in this order:
 
 1. **Clean by construction** - public recipes carry placeholders, and tenant-specific
    values live in a solution folder that is not on the export allowlist. Nothing needs

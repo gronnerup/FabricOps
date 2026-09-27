@@ -34,7 +34,7 @@ HEADER = """\
 # Rendered by `fabricops release` for a single run, and pulled into the committed
 # parameter.yml through its `extend:` list. Everything in here is something that could not
 # be expressed with fabric-cicd's dynamic notation, which is why it needs generating at
-# all. See documentation/specs/E09 section 3.
+# all.
 """
 
 #: Resolves a connection display name to its id. Returns None when the connection does not

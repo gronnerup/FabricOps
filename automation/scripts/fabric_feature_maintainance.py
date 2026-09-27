@@ -2,7 +2,7 @@
 """Fabric feature workspace maintenance - entry point.
 
 A thin wrapper over the `fabricops` package, keeping the arguments the pipelines already
-pass. See documentation/specs/E08 for what the new implementation adds: the
+pass. What the new implementation adds: the
 branched-workspace relation, ownership tags, the developer as admin of their own
 workspace, and the shared git module.
 

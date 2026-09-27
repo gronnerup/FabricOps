@@ -16,7 +16,7 @@ from ..errors import RecipeError
 _TOKEN = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)(?::([^}]*))?\}")
 
 # Legacy token names from the first generation of FabricOps recipes (feature.json used
-# `{feature_name}` and `{layer_name}`). Permanent, per decision 4.
+# `{feature_name}` and `{layer_name}`). Permanent.
 TOKEN_ALIASES = {
     "feature_name": "feature",
     "layer_name": "layer",

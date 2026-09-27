@@ -4,7 +4,7 @@ The first-generation implementations, kept for one release so a pipeline can fal
 if needed. They read the same recipe files and are unchanged.
 
 `fabric_setup.py` is superseded by `automation/scripts/fabric_setup.py`, which is a thin
-entry point over the `fabricops` package (see `documentation/specs/E03`). The new path
+entry point over the `fabricops` package. The new path
 adds dependency-ordered planning, `--dry-run`, structured logging with redaction, a run
 manifest and non-zero exit codes on failure.
 
@@ -13,7 +13,7 @@ Run the legacy version explicitly if you need it:
     python automation/scripts/legacy/fabric_setup.py --environment dev
 
 `fabric_release.py` is superseded by `automation/scripts/fabric_release.py`, which is a
-thin entry point over the `fabricops` package (see `documentation/specs/E09`). The new
+thin entry point over the `fabricops` package. The new
 path moves deployment policy into the recipe, generates its parameter entries into an
 overlay instead of editing the committed `parameter.yml`, uses fabric-cicd's native
 `semantic_model_binding` in place of the hand-written binding step, orders layers by their
@@ -34,7 +34,7 @@ called by any pipeline. They upserted generated entries into the committed
 `fabricops release` now renders generated entries into
 `automation/resources/parameters/generated/dynamic.parameter.yml`, pulled in by the
 committed file's `extend:` list, and passes one shared parameter file to fabric-cicd via
-`parameter_file_path` (documentation/specs/E09 section 3). Running the old scripts would
+`parameter_file_path`. Running the old scripts would
 rewrite the file the new design promises not to touch.
 
 They are left in place rather than deleted so an older pipeline definition still works.

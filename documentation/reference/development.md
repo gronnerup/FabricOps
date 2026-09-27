@@ -215,7 +215,7 @@ keep the bias: anything the reaper cannot determine must mean "keep".
 
 Tag *creation* needs a Fabric administrator; *applying* does not. So sync once with an
 admin, commit the registry, and let every deployment resolve names from the committed
-file (see `documentation/specs/E05`).
+file.
 
 ```bash
 # with an admin identity, occasionally
@@ -282,5 +282,5 @@ trees. Use `.venv/bin/python -m pip`, and recreate the venv on 3.13 when conveni
 `pytest`, `jsonschema` and `ruff` are **not** installed; the suite deliberately runs on
 stdlib `unittest` so it works as-is.
 
-Dependencies are pinned in `automation/resources/requirements.txt` (E09-S7). Bump them on
+Dependencies are pinned in `automation/resources/requirements.txt`. Bump them on
 purpose, with the test suite as the gate. The scheduled bump job is still outstanding.

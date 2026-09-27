@@ -2,7 +2,7 @@
 
 Every knob `fabric-cicd`'s config file exposes is expressible here instead, per layer and
 per environment, so a layered solution needs one recipe rather than one config file per
-layer. See documentation/specs/E09 §1 for why the config file was rejected.
+layer.
 """
 
 from __future__ import annotations

@@ -227,5 +227,5 @@ automation/scripts/conn.txt
 **/.DS_Store
 
 # Rendered per release run by `fabricops release`; the committed parameter.yml is the
-# source of truth and this is only ever machine-written (see documentation/specs/E09).
+# source of truth and this is only ever machine-written.
 automation/resources/parameters/generated/

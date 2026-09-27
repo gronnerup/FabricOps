@@ -35,7 +35,7 @@ jobs:
 
     # The parameter file is no longer built here. `fabricops release` renders whatever it
     # has to resolve at deploy time into automation/resources/parameters/generated/, and
-    # the committed parameter.yml is never rewritten (documentation/specs/E09 section 3).
+    # the committed parameter.yml is never rewritten.
     # The old script upserted into the committed file and copied it into every layer
     # folder; running it now would fight the overlay.
 

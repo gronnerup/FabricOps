@@ -1,8 +1,6 @@
 # Storage in feature development
 
 How data is shared, isolated and cleaned up while people work on feature branches.
-The design and the reasoning behind it are in [E07](../specs/E07-feature-dev-storage.md);
-this page is the working reference.
 
 ## The default: shared
 

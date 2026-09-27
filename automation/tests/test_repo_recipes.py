@@ -1,6 +1,6 @@
 """Golden test: this repository's own recipes must keep loading unchanged.
 
-This is the regression net for decision 4 (permanent aliases). It runs against the real
+This is the regression net for the permanent aliases. It runs against the real
 files in `automation/resources`, so a change to the loader that would break an existing
 recipe fails here rather than in a tenant.
 """

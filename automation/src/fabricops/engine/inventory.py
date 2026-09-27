@@ -1,4 +1,4 @@
-"""Feature workspace inventory and TTL reaping (E08-S2, E08-S3).
+"""Feature workspace inventory and TTL reaping.
 
 A feature workspace is identified by what it *says about itself*, never by parsing its
 display name. Two records carry that, in order of reliability:

@@ -2,7 +2,7 @@
 """Fabric release - entry point.
 
 A thin wrapper over the `fabricops` package, keeping the arguments the pipelines already
-pass. See documentation/specs/E09 for what the new implementation adds: deployment policy
+pass. What the new implementation adds: deployment policy
 declared per layer in the recipe, a generated parameter overlay that leaves the committed
 parameter file alone, native `semantic_model_binding` in place of the hand-written binding
 step, dependency-ordered layers and a non-zero exit code when a layer fails.

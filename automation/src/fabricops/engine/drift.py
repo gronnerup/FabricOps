@@ -1,4 +1,4 @@
-"""Drift: does the tenant still look like the recipe says it should (E03-S8)?
+"""Drift: does the tenant still look like the recipe says it should?
 
 There is no separate "check" implementation. A drift check *is* a dry run: every action
 already reads before it acts and reports whether it would create, update or leave alone,

@@ -186,7 +186,7 @@ class PlatformFileFormatTests(unittest.TestCase):
         self.assertEqual(offenders, [], f"CRLF in: {', '.join(offenders)}")
 
 
-# The repository is shaped like the three-layer floor from Episode 2: `store/`, and a
+# The repository is shaped like the three-layer floor: `store/`, and a
 # responsibility folder for everything that lives inside `engineering/` and `analytics/`.
 # A tier is only a choice of which of these get a workspace bound to them.
 RESPONSIBILITIES = {
@@ -292,7 +292,7 @@ def item_platform_files():
 
 @unittest.skipUnless(SOLUTION.is_dir(), "solution tree not present")
 class NamingConventionTests(unittest.TestCase):
-    """The naming discipline from Episode 2 and 3, checked on every pull request."""
+    """The naming discipline, checked on every pull request."""
 
     def test_the_type_suffix_is_a_fabric_item_type(self):
         # `Curated.Lakehous` is a folder git integration will never sync into a workspace.

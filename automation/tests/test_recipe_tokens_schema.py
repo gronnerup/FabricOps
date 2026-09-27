@@ -47,7 +47,7 @@ class TokenTests(unittest.TestCase):
         self.assertIn("not available here", str(ctx.exception))
 
     def test_legacy_token_names_still_resolve(self):
-        """feature.json used {feature_name} and {layer_name} - decision 4 keeps them working."""
+        """feature.json used {feature_name} and {layer_name} - they keep working."""
         out = substitute("*{feature_name} ({layer_name})", {"feature": "add-orders", "layer": "Prepare"})
         self.assertEqual(out, "*add-orders (Prepare)")
 

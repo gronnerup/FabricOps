@@ -4,7 +4,7 @@ The engine is type-agnostic: creation, properties, definitions and tags work for
 Fabric item type from `name` + `type` alone. Where a type genuinely behaves differently -
 a Lakehouse whose SQL endpoint provisions asynchronously, a Report that needs a semantic
 model id - that behaviour lives in a registered handler, never in an `if` branch in the
-middle of the flow (documentation/specs/E03 §5).
+middle of the flow.
 """
 
 from __future__ import annotations

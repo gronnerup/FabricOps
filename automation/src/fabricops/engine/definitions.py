@@ -1,4 +1,4 @@
-"""Item definitions: getting real content into a platform-owned item (E03-S4).
+"""Item definitions: getting real content into a platform-owned item.
 
 Two declarative routes, both ending in `fab import`:
 

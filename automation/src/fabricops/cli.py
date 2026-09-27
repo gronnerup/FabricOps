@@ -30,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="fabricops", description="Declarative automation for Microsoft Fabric.")
     parser.add_argument("--version", action="version", version=f"fabricops {__version__}")
     parser.add_argument("--resources", default=DEFAULT_RESOURCES, help=f"Recipe root. Default: {DEFAULT_RESOURCES}")
-    parser.add_argument("--solution", default=None, help="Solution name (see documentation/specs/E02).")
+    parser.add_argument("--solution", default=None, help="Solution name. Optional when the repository defines exactly one.")
     parser.add_argument("--log-level", default=None, help="off, error, warn, info, debug or trace.")
     parser.add_argument("--trace-file", default=None, help="Write a JSONL trace of every command to this path.")
     parser.add_argument("--no-redact", action="store_true", help="Disable secret masking (never use in CI).")
@@ -174,7 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
     show_parser = manifest_sub.add_parser("show", help="Print the outputs of a run.", parents=[common])
     show_parser.add_argument("--path", default=None, help="Manifest path. Default: the most recent run.")
 
-    tags_parser = subparsers.add_parser("tags", help="Work with Fabric tags (see documentation/specs/E05).", parents=[common])
+    tags_parser = subparsers.add_parser("tags", help="Work with Fabric tags.", parents=[common])
     tags_sub = tags_parser.add_subparsers(dest="command", required=True)
     tags_sync = tags_sub.add_parser("sync", help="Create missing tenant/domain tags and record their ids [admin].", parents=[common])
     tags_sync.add_argument("--environment", default=None)
@@ -183,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     tags_list.add_argument("--environment", default=None)
     tags_list.add_argument("--registry", default=None)
 
-    varlib_parser = subparsers.add_parser("varlib", help="Variable libraries (see documentation/specs/E06).", parents=[common])
+    varlib_parser = subparsers.add_parser("varlib", help="Variable libraries.", parents=[common])
     varlib_sub = varlib_parser.add_subparsers(dest="command", required=True)
     varlib_render = varlib_sub.add_parser("render", help="Generate variable library definitions from the recipe.", parents=[common])
     varlib_render.add_argument("--environments", default=None, help="Comma-separated value sets. Default: the solution's environments.")
@@ -191,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
     varlib_activate = varlib_sub.add_parser("activate", help="Set the active value set on the target workspaces.", parents=[common])
     varlib_activate.add_argument("--environment", required=True, help="Value set to activate.")
 
-    storage_parser = subparsers.add_parser("storage", help="Feature storage (see documentation/specs/E07).", parents=[common])
+    storage_parser = subparsers.add_parser("storage", help="Feature storage.", parents=[common])
     storage_sub = storage_parser.add_subparsers(dest="command", required=True)
     storage_report = storage_sub.add_parser("report", help="List feature schemas left behind in shared storage.", parents=[common])
     storage_report.add_argument("--environment", default="dev")
@@ -529,7 +529,7 @@ def _references_sync(args: argparse.Namespace, log: RunLog) -> int:
 
 
 def _connection_refresh(args: argparse.Namespace, log: RunLog) -> int:
-    """Put a fresh token into the git credentials connection (E03-S5).
+    """Put a fresh token into the git credentials connection.
 
     A personal access token expires, and when it does every `git/connect` fails. This is
     the one-command remedy, so rotating a PAT does not mean clicking through the portal.
@@ -632,7 +632,7 @@ def _token_credential(args: argparse.Namespace, log: RunLog):  # noqa: ANN202 - 
 
 
 def _plan_check(args: argparse.Namespace, loaded: recipe.Recipe, plan, log: RunLog) -> int:
-    """Probe the tenant and report where it differs from the recipe (E03-S8).
+    """Probe the tenant and report where it differs from the recipe.
 
     A separate flag rather than the default, because a bare `plan` is useful offline -
     reviewing a recipe change in a PR should not need credentials. Nightly drift jobs pass
@@ -930,7 +930,7 @@ def _current_branch() -> str | None:
 
 
 def _feature_inventory(args: argparse.Namespace, log: RunLog) -> int:
-    """`feature list` and `feature reap` (E08-S2, E08-S3).
+    """`feature list` and `feature reap`.
 
     Both read the same inventory: workspaces that identify themselves through their
     description. Nothing is deleted without `--apply`, and nothing that does not carry a

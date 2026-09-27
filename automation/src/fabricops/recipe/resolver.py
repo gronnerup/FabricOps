@@ -1,4 +1,4 @@
-"""Which recipe files apply to this run (documentation/specs/E02).
+"""Which recipe files apply to this run.
 
 Resolution is a documented, ordered search - first match wins - and the resolved paths are
 printed in the run header, so "which file did it actually read?" is never a mystery.

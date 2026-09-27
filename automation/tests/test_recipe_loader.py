@@ -91,7 +91,7 @@ layers:
 
 
 class NormalizeLegacyTests(unittest.TestCase):
-    """Decision 4: every legacy spelling keeps working, permanently."""
+    """Every legacy spelling keeps working, permanently."""
 
     def test_root_and_defaults_aliases(self):
         canonical, notes = normalize({"name": "X - {layer}", "generic": {"capacity_name": "Trial-01"}})
