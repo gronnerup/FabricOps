@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""A fake `fab` executable for offline tests.
+
+Behaviour is driven by two environment variables:
+
+* ``FAKE_FAB_SCRIPT`` - JSON file with the rules to match against argv.
+* ``FAKE_FAB_LOG``    - JSONL file this script appends every received argv to.
+
+A rule matches when every string in ``match`` appears in the joined argv and, if the rule
+carries a ``command``, when it equals argv[0]. Rules are evaluated in order; the first
+match wins. A rule may carry a single response or a list of ``responses`` consumed one per
+call, which is how retry behaviour is tested.
+
+Prefer ``command`` whenever a needle could appear anywhere in the argv - `get` also occurs
+inside `api ... -X get`, for example.
+"""
+
+import json
+import os
+import sys
+
+argv = sys.argv[1:]
+joined = " ".join(argv)
+
+log_path = os.environ.get("FAKE_FAB_LOG")
+if log_path:
+    with open(log_path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(argv) + "\n")
+
+script_path = os.environ.get("FAKE_FAB_SCRIPT")
+rules = []
+if script_path and os.path.exists(script_path):
+    with open(script_path, encoding="utf-8") as handle:
+        rules = json.load(handle)
+
+state_path = (script_path or "") + ".state"
+state = {}
+if os.path.exists(state_path):
+    with open(state_path, encoding="utf-8") as handle:
+        state = json.load(handle)
+
+
+def respond(response):
+    sys.stdout.write(response.get("stdout", ""))
+    sys.stderr.write(response.get("stderr", ""))
+    sys.exit(int(response.get("returncode", 0)))
+
+
+for index, rule in enumerate(rules):
+    needles = rule.get("match") or []
+    command = rule.get("command")
+    if command and (not argv or argv[0] != command):
+        continue
+    if all(needle in joined for needle in needles):
+        responses = rule.get("responses")
+        if responses:
+            key = str(index)
+            position = int(state.get(key, 0))
+            response = responses[min(position, len(responses) - 1)]
+            state[key] = position + 1
+            with open(state_path, "w", encoding="utf-8") as handle:
+                json.dump(state, handle)
+            respond(response)
+        respond(rule)
+
+respond({"stdout": os.environ.get("FAKE_FAB_DEFAULT_STDOUT", ""), "returncode": int(os.environ.get("FAKE_FAB_DEFAULT_RC", "0"))})

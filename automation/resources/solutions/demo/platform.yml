@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../schemas/solution.schema.json
+display_name_pattern: Confidence - {layer} [{environment}]
+defaults:
+  capacity: your-capacity-name
+  permissions:
+    Admin:
+    - type: Group
+      id: 11111111-1111-1111-1111-111111111111
+  connections:
+  - name: Confidence-SemanticModel
+    type: PowerBIDatasets
+    auth: ServicePrincipal
+  - name: Confidence-Curated [{environment}]
+    type: SQL
+    auth: ServicePrincipal
+    from_item:
+      layer: Store
+      name: Curated
+      type: Lakehouse
+layers:
+  Core:
+    deploy:
+      item_types_in_scope: []
+    git:
+      directory: solution/engineering/core
+  Store:
+    git:
+      directory: solution/store
+  Ingest:
+    git:
+      directory: solution/engineering/ingest
+  Prepare:
+    git:
+      directory: solution/engineering/prepare
+  Model:
+    permissions:
+      Admin:
+      - type: WorkspaceIdentity
+        name: Confidence - Orchestrate [{environment}]
+    git:
+      directory: solution/analytics/model
+  Present:
+    git:
+      directory: solution/analytics/present
+  Orchestrate:
+    workspace_identity: true
+    git:
+      directory: solution/engineering/orchestrate
+references:
+- file: solution/analytics/present/Rebrickable.Report/definition.pbir
+  replace:
+  - pattern: semanticmodelid=([0-9a-fA-F-]{36})
+    layer: Model
+    item: Rebrickable
+    type: SemanticModel
+    label: 'report: semantic model'
+    blocks_sync: true
+- file: solution/analytics/model/Rebrickable.SemanticModel/definition/expressions.tmdl
+  replace:
+  - pattern: onelake\.dfs\.fabric\.microsoft\.com/([0-9a-fA-F-]{36})
+    layer: Store
+    label: 'model: Store workspace'
+    blocks_sync: true
+  - pattern: onelake\.dfs\.fabric\.microsoft\.com/[0-9a-fA-F-]{36}/([0-9a-fA-F-]{36})
+    layer: Store
+    item: Curated
+    type: Lakehouse
+    label: 'model: Curated lakehouse'
+    blocks_sync: true
+- file: solution/engineering/orchestrate/Load Rebrickable.DataPipeline/pipeline-content.json
+  replace:
+  - at: properties.activities.0.typeProperties.workspaceId
+    layer: Ingest
+    label: 'pipeline: Ingest workspace'
+    blocks_sync: true
+  - at: properties.activities.0.typeProperties.notebookId
+    layer: Ingest
+    item: Rebrickable_Ingest
+    type: Notebook
+    label: 'pipeline: Ingest notebook'
+    blocks_sync: true
+  - at: properties.activities.1.typeProperties.workspaceId
+    layer: Prepare
+    label: 'pipeline: Prepare workspace (Base)'
+    blocks_sync: true
+  - at: properties.activities.1.typeProperties.notebookId
+    layer: Prepare
+    item: Rebrickable_Base
+    type: Notebook
+    label: 'pipeline: Base notebook'
+    blocks_sync: true
+  - at: properties.activities.2.typeProperties.workspaceId
+    layer: Prepare
+    label: 'pipeline: Prepare workspace (Curated)'
+    blocks_sync: true
+  - at: properties.activities.2.typeProperties.notebookId
+    layer: Prepare
+    item: Rebrickable_Curated
+    type: Notebook
+    label: 'pipeline: Curated notebook'
+    blocks_sync: true

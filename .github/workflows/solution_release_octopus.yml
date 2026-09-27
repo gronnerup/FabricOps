@@ -28,8 +28,8 @@ jobs:
 
     - name: Set up Git
       run: |
-        git config user.name "PeerInsights Automation"
-        git config user.email "peerinsights@emono.dk"
+        git config user.name "FabricOps Automation"
+        git config user.email "fabricops-automation@example.com"
 
     - name: Create Octopus Merge Branch
       id: octomerge

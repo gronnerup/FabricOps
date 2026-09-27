@@ -1,0 +1,36 @@
+relationship 2d095589-8df9-5309-bf51-ccfc35ab1992
+	fromColumn: 'Set Parts'.'Set Number'
+	toColumn: Set.'Set Number'
+
+relationship eef8ee3f-778e-5914-8fc9-595b094810b8
+	fromColumn: 'Set Parts'.'Part Number'
+	toColumn: Part.'Part Number'
+
+relationship a7e59b47-b035-5898-9b51-7e31167d4118
+	fromColumn: 'Set Parts'.'Colour Id'
+	toColumn: Colour.'Colour Id'
+
+relationship 1fb6e707-9879-52bb-bd18-24251afd6a26
+	fromColumn: 'Set Minifigs'.'Set Number'
+	toColumn: Set.'Set Number'
+
+relationship 6695d3bb-f46f-53c9-8144-075c00d8ef13
+	fromColumn: 'Set Minifigs'.'Minifig Number'
+	toColumn: Minifig.'Minifig Number'
+
+relationship 12b5bf9e-f33c-5ca5-ac6f-f37805f677d6
+	fromColumn: Set.'Theme Id'
+	toColumn: Theme.'Theme Id'
+
+relationship b4a889c5-0913-593f-9b88-28f4be4867e9
+	fromColumn: Set.Year
+	toColumn: Year.Year
+
+relationship 12469af6-cf5d-5b6d-93a3-a574106a5ff5
+	fromColumn: 'Member Sets'.'Member Number'
+	toColumn: Member.'Member Number'
+
+relationship 6aba35ea-ed41-5d39-be48-e80b1bd318d3
+	crossFilteringBehavior: bothDirections
+	fromColumn: 'Member Sets'.'Set Number'
+	toColumn: Set.'Set Number'

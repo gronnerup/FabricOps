@@ -10,7 +10,7 @@ parameters:
 stages:
   - ${{ each env in split(parameters.environments, ',') }}:
     - stage: ${{ env }}
-      displayName: 'Teardown ${{ env }}'
+      displayName: 'Cleanup ${{ env }}'
       jobs:
       
       - job: Cleanup_Fabric_${{ env }}
@@ -42,7 +42,7 @@ stages:
             workingDirectory: '$(Build.SourcesDirectory)/automation/resources'
 
           - script: python -u automation/scripts/fabric_setup.py --environment ${{ env }} --action delete
-            displayName: 'Run Fabric solution cleanup script'
+            displayName: 'Run Fabric solution setup script'
             env:
               TENANT_ID: $(SPN_TENANT_ID)
               CLIENT_ID: $(SPN_CLIENT_ID)

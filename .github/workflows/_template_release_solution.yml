@@ -48,11 +48,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r automation/resources/requirements.txt
 
+      # --repo_path is now the repository root; the layer directory comes from the
+      # recipe's git.directory, which already carries the solution/ prefix.
       - name: Release Fabric items
-        run: python -u automation/scripts/fabric_release.py --environment ${{ inputs.environment }} --repo_path "./solution" --is_debug ${{ inputs.debug_logging }}
+        run: python -u automation/scripts/fabric_release.py --environment ${{ inputs.environment }} --repo_path "." --is_debug ${{ inputs.debug_logging }}
 
+      # Both steps below deploy the SQL Database schema, which only exists when the
+      # solution ships a dacpac. See solution/engineering/core/README.md.
       - name: Generate SQL connection string
         id: generate_connection
+        if: hashFiles('solution/**/bin/Debug/*.dacpac') != ''
         shell: bash
         run: |
           python automation/scripts/generate_connection_string.py \
@@ -65,9 +70,10 @@ jobs:
           echo "connection_string=$(cat conn.txt)" >> $GITHUB_OUTPUT
 
       - name: Azure SQL Deploy
+        if: hashFiles('solution/**/bin/Debug/*.dacpac') != ''
         uses: Azure/sql-action@v2.2.1
         with:
           connection-string: ${{ steps.generate_connection.outputs.connection_string }}
-          path: './solution/core/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac'
+          path: './solution/engineering/core/Metadata.SQLDatabase/bin/Debug/Metadata.dacpac'
           action: publish
           arguments: '/p:DropObjectsNotInSource=false'

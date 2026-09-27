@@ -1,0 +1,45 @@
+/// Individual LEGO parts.
+table Part
+	lineageTag: 8f0ae6a1-9f48-5396-b82a-284180d98702
+
+	column 'Part Number'
+		dataType: string
+		isKey
+		lineageTag: 399b8970-44ea-54eb-9f49-a3766169603f
+		summarizeBy: none
+		sourceColumn: part_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Part Name'
+		dataType: string
+		lineageTag: 9d8456a9-fac4-5633-b9a0-51ec0cb8d752
+		summarizeBy: none
+		sourceColumn: part_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Part Category'
+		dataType: string
+		lineageTag: 8b5cce77-503f-55cc-819b-811f842f4072
+		summarizeBy: none
+		sourceColumn: part_category
+
+		annotation SummarizationSetBy = Automatic
+
+	column Material
+		dataType: string
+		lineageTag: be550599-7e0c-562f-b845-8076778f1227
+		summarizeBy: none
+		sourceColumn: part_material
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Part = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_part
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,43 @@
+/// Minifigures in each set, from the latest inventory version.
+table 'Set Minifigs'
+	lineageTag: 1c19c48e-25b5-5d5e-b182-0ef565e2f58e
+
+	measure '# Minifigs' = SUM ( 'Set Minifigs'[Quantity] )
+		formatString: #,##0
+		lineageTag: 2a9d1620-57fc-5d89-bdbf-d25b92c4888b
+
+	column 'Set Number'
+		dataType: string
+		isHidden
+		lineageTag: 6d16d615-055e-5013-bd5d-d6a096189ef4
+		summarizeBy: none
+		sourceColumn: set_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Minifig Number'
+		dataType: string
+		isHidden
+		lineageTag: c5bc6c7a-54ed-54ca-ae80-81daae3b0b28
+		summarizeBy: none
+		sourceColumn: fig_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column Quantity
+		dataType: int64
+		formatString: #,##0
+		lineageTag: 8907f67a-605f-5f8b-b6b6-6dc6290659e2
+		summarizeBy: sum
+		sourceColumn: quantity
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Set Minifigs' = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: fact_set_minifig
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

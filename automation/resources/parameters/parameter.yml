@@ -1,5 +1,90 @@
+# Deploy-time parameterisation for fabric-cicd.
+#
+# `find_value` is the **dev** id, because dev is what git holds. Dev workspaces are
+# git-connected, so whatever is committed is synced into them verbatim - no parameter file
+# runs. That rules out placeholder ids: Fabric resolves a report's semantic model and a
+# pipeline's notebooks as real dependencies at sync time, and rejects the commit if they do
+# not exist. So the committed artefacts carry dev's real ids, and this file maps them
+# onward, which is also the shape fabric-cicd's own documentation assumes.
+#
+# Re-creating a dev workspace changes these ids. Where a value can be resolved by name at
+# deploy time it is, using dynamic notation, so only the `find_value` side needs updating.
+
+# `fabricops release` renders anything it has to resolve at deploy time - today that means
+# connection ids for semantic model binding - into the file below, and never into this one.
+# An empty overlay is still written, so this reference never dangles.
+extend:
+  - "./generated/dynamic.parameter.yml"
+
+# Note: fabric-cicd wants `is_regex` as the *string* "true"/"false", not a YAML boolean -
+# a boolean fails validation with "The provided 'is_regex' is not of type string". It is
+# omitted below because none of these are regexes and non-regex is the default.
 find_replace:
-  - find_value: abc123456789      # Sample
+  # Direct Lake on OneLake: the Store workspace in the AzureStorage.DataLake path.
+  # Not $workspace.$id - that resolves to the model's own workspace (Model), and the
+  # Curated lakehouse lives in Store.
+  - find_value: "00000000-0000-0000-0000-00000000a001"     # Confidence - Store [dev]
+    item_type: SemanticModel
     replace_value:
-        tst: abc123456789
-        prd: abc123456789
+      tst: "$workspace.Confidence - Store [tst]"
+      prd: "$workspace.Confidence - Store [prd]"
+
+  # Direct Lake on OneLake: the Curated lakehouse item id
+  - find_value: "00000000-0000-0000-0000-00000000a002"     # Curated.Lakehouse [dev]
+    item_type: SemanticModel
+    replace_value:
+      tst: "$workspace.Confidence - Store [tst].$items.Lakehouse.Curated.$id"
+      prd: "$workspace.Confidence - Store [prd].$items.Lakehouse.Curated.$id"
+
+  # Thin report -> semantic model in the Model workspace. Reports and models live in
+  # different workspaces, so fabric-cicd cannot resolve this from a relative byPath.
+  #
+  # Thin report -> semantic model. The connection string carries both: the workspace and
+  # model by name, and the id as `semanticmodelid=`. Fabric requires the id - naming alone
+  # is rejected with "The semantic model identifier is invalid" - but the names still have
+  # to move with the environment.
+  - find_value: "Confidence - Model [dev]"
+    item_type: Report
+    replace_value:
+      tst: "Confidence - Model [tst]"
+      prd: "Confidence - Model [prd]"
+
+  - find_value: "00000000-0000-0000-0000-00000000a003"     # Rebrickable.SemanticModel [dev]
+    item_type: Report
+    replace_value:
+      tst: "$workspace.Confidence - Model [tst].$items.SemanticModel.Rebrickable.$id"
+      prd: "$workspace.Confidence - Model [prd].$items.SemanticModel.Rebrickable.$id"
+
+  # Pipeline -> the workspaces its notebooks live in
+  - find_value: "00000000-0000-0000-0000-00000000a004"     # Confidence - Ingest [dev]
+    item_type: DataPipeline
+    replace_value:
+      tst: "$workspace.Confidence - Ingest [tst]"
+      prd: "$workspace.Confidence - Ingest [prd]"
+
+  - find_value: "00000000-0000-0000-0000-00000000a005"     # Confidence - Prepare [dev]
+    item_type: DataPipeline
+    replace_value:
+      tst: "$workspace.Confidence - Prepare [tst]"
+      prd: "$workspace.Confidence - Prepare [prd]"
+
+  # Pipeline -> the notebooks themselves. Referenced by deployed item id rather than
+  # logicalId: git integration cannot resolve a logicalId across workspace boundaries,
+  # and the pipeline is in Orchestrate while the notebooks are in Ingest and Prepare.
+  - find_value: "00000000-0000-0000-0000-00000000a006"     # Rebrickable_Ingest [dev]
+    item_type: DataPipeline
+    replace_value:
+      tst: "$workspace.Confidence - Ingest [tst].$items.Notebook.Rebrickable_Ingest.$id"
+      prd: "$workspace.Confidence - Ingest [prd].$items.Notebook.Rebrickable_Ingest.$id"
+
+  - find_value: "00000000-0000-0000-0000-00000000a007"     # Rebrickable_Base [dev]
+    item_type: DataPipeline
+    replace_value:
+      tst: "$workspace.Confidence - Prepare [tst].$items.Notebook.Rebrickable_Base.$id"
+      prd: "$workspace.Confidence - Prepare [prd].$items.Notebook.Rebrickable_Base.$id"
+
+  - find_value: "00000000-0000-0000-0000-00000000a008"     # Rebrickable_Curated [dev]
+    item_type: DataPipeline
+    replace_value:
+      tst: "$workspace.Confidence - Prepare [tst].$items.Notebook.Rebrickable_Curated.$id"
+      prd: "$workspace.Confidence - Prepare [prd].$items.Notebook.Rebrickable_Curated.$id"

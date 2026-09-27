@@ -1,0 +1,59 @@
+# The PR-close cleanup handles the tidy path. This catches what it misses: a branch
+# deleted without a PR, a PR closed while the agent was down, an experiment nobody came
+# back to. Reports on a schedule and only deletes when asked, because a scheduled job that
+# deletes workspaces unattended is a job you find out about the hard way.
+trigger: none
+pr: none
+
+schedules:
+  - cron: '30 3 * * *'           # daily, after the nightly full dev sync
+    displayName: Daily feature workspace reap
+    branches:
+      include: [main]
+    always: true
+
+parameters:
+  - name: apply_when
+    displayName: 'Delete: none (report only), branch-gone (branch deleted), both (also age-based)'
+    type: string
+    default: branch-gone
+    values: [ none, branch-gone, both ]
+  - name: ttl_days
+    displayName: Age in days after which a feature workspace is stale
+    type: number
+    default: 14
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - name: PYTHONIOENCODING
+    value: utf-8
+  - name: PYTHONUNBUFFERED
+    value: 1
+  - group: Fabric_Automation
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.12'
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install -r automation/resources/requirements.txt
+    displayName: 'Install Python dependencies'
+
+  # The branch probe uses the pipeline's own token against the Azure DevOps refs API, so a
+  # deleted branch is a fact the reap can act on. Age alone is only reported unless asked.
+  - script: |
+      python -u -m fabricops feature reap \
+        --resources automation/resources \
+        --ttl-days ${{ parameters.ttl_days }} \
+        ${{ iif(eq(parameters.apply_when, 'none'), '', format('--apply --apply-when {0}', parameters.apply_when)) }}
+    displayName: 'Reap stale feature workspaces'
+    env:
+      PYTHONPATH: automation/src
+      TENANT_ID: $(SPN_TENANT_ID)
+      CLIENT_ID: $(SPN_CLIENT_ID)
+      CLIENT_SECRET: $(SPN_CLIENT_SECRET)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)

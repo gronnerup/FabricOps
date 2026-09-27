@@ -413,7 +413,7 @@ def get_semantic_model_bindings(yml_path: str, target_layer: str) -> list:
     YAML structure example:
         semantic_model_sqlendpoint_binding:
           - lakehouse_name: Curated
-            lakehouse_ws_layer: Store
+            lakehouse_layer: Store
             semantic_model_layer: Model
             semantic_models: [SpaceParts, SpacePartsSaveToFolder, SpacePartsBim]
 
@@ -425,7 +425,7 @@ def get_semantic_model_bindings(yml_path: str, target_layer: str) -> list:
         list[dict]: One entry per lakehouse, containing:
             {
                 "semantic_model_layer": str,
-                "lakehouse_ws_layer": str,
+                "lakehouse_layer": str,
                 "lakehouse_name": str,
                 "semantic_models": list[str]
             }
@@ -444,11 +444,11 @@ def get_semantic_model_bindings(yml_path: str, target_layer: str) -> list:
     bindings = (data or {}).get("semantic_model_sqlendpoint_binding", [])
     for b in bindings:
         semantic_model_layer = (b or {}).get("semantic_model_layer")
-        lakehouse_ws_layer = (b or {}).get("lakehouse_ws_layer")
+        lakehouse_layer = (b or {}).get("lakehouse_layer")
         lakehouse_name = (b or {}).get("lakehouse_name")
         sm_names = (b or {}).get("semantic_models")
 
-        if not semantic_model_layer or not lakehouse_ws_layer or not lakehouse_name or not sm_names:
+        if not semantic_model_layer or not lakehouse_layer or not lakehouse_name or not sm_names:
             continue
 
         if (semantic_model_layer or "").strip().lower() != target_layer_norm:
@@ -462,7 +462,7 @@ def get_semantic_model_bindings(yml_path: str, target_layer: str) -> list:
 
         entries.append({
             "semantic_model_layer": semantic_model_layer,
-            "lakehouse_ws_layer": lakehouse_ws_layer,
+            "lakehouse_layer": lakehouse_layer,
             "lakehouse_name": lakehouse_name,
             "semantic_models": semantic_models
         })
@@ -627,20 +627,20 @@ def build_parameter_yml_dynamic(yaml_file, dev_environment_data, target_environm
     print_success(f"Parameter file successfully updated in path {yaml_file}")
 
 
-def get_lakehouse_connection_template(env_definition: dict, lakehouse_ws_layer: str, lakehouse_name: str) -> str:
+def get_lakehouse_connection_template(env_definition: dict, lakehouse_layer: str, lakehouse_name: str) -> str:
     """
     Retrieve the connection name template for a lakehouse from the environment definition.
 
     Args:
         env_definition (dict): The environment definition containing layers and items.
-        lakehouse_ws_layer (str): The layer name where the lakehouse is located (e.g., "Store").
+        lakehouse_layer (str): The layer name where the lakehouse is located (e.g., "Store").
         lakehouse_name (str): The name of the lakehouse to find (e.g., "Curated").
 
     Returns:
         str or None: The connection_name template for the lakehouse, or None if not found.
     """
     try:
-        layer_def = env_definition.get("layers", {}).get(lakehouse_ws_layer, {})
+        layer_def = env_definition.get("layers", {}).get(lakehouse_layer, {})
         lakehouse_items = (layer_def.get("items", {}) or {}).get("Lakehouse", [])
         for itm in lakehouse_items:
             if str(itm.get("item_name")).strip() == lakehouse_name:

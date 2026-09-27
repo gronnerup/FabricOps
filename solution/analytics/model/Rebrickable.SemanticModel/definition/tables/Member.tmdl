@@ -1,0 +1,34 @@
+/// Collectors. Demo data, not from Rebrickable.
+table Member
+	lineageTag: b64a3a13-9828-5a31-a4da-00880e1b41da
+
+	measure '# Members' = DISTINCTCOUNT ( Member[Member Number] )
+		formatString: #,##0
+		lineageTag: 0a07d937-0a00-5b51-a915-be5823cd5829
+
+	column 'Member Number'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 0b40c238-c95f-5465-a212-08437d6e26d1
+		summarizeBy: none
+		sourceColumn: member_number
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Member Name'
+		dataType: string
+		lineageTag: 5a62dd58-39bd-51b5-b968-3585686d7a77
+		summarizeBy: none
+		sourceColumn: member_name
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Member = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_member
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

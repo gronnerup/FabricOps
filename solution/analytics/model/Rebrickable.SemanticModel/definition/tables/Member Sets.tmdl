@@ -1,0 +1,41 @@
+/// Many-to-many between members and the sets they own.
+table 'Member Sets'
+	isHidden
+	lineageTag: 42eaf581-0ac3-5398-95a5-b1709ffd3c08
+
+	/// Sets owned by the members in filter context, resolved through the bridge.
+	measure 'Sets Owned' = CALCULATE ( [# Sets], 'Member Sets' )
+		formatString: #,##0
+		lineageTag: 04735573-45a2-5a21-8dd3-6f2eae8b03b8
+
+	/// Total pieces across the sets a member owns.
+	measure 'Pieces Owned' = CALCULATE ( [# Parts], 'Member Sets' )
+		formatString: #,##0
+		lineageTag: cb64bb28-25e4-5770-a59d-7c435ddb0f0c
+
+	column 'Member Number'
+		dataType: int64
+		isHidden
+		lineageTag: 5637f95c-417d-56d2-b933-b3e04aed90fd
+		summarizeBy: none
+		sourceColumn: member_number
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Set Number'
+		dataType: string
+		isHidden
+		lineageTag: 5f76e695-5c3f-5f14-8754-efb47e6ef5da
+		summarizeBy: none
+		sourceColumn: set_num
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Member Sets' = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: bridge_member_set
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

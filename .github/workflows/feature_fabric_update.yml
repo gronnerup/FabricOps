@@ -3,7 +3,7 @@ name: Update feature workspaces
 on:
   push:
     branches:
-      - 'feature/**'
+      - 'DISABLEDfeature/**'
 
 jobs:
   cleanup-feature:

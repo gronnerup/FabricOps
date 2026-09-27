@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "Load Rebrickable",
+    "description": "Ingest the Rebrickable CSVs, then build Base, then build Curated"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "c3f1d84b-9e07-5a26-b1d3-7c5e082f4a91"
+  }
+}

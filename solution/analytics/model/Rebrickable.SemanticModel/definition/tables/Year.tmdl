@@ -1,0 +1,41 @@
+/// One row per release year. Materialised in Curated, because Direct Lake has no calculated tables.
+table Year
+	lineageTag: 8e38bbab-35ea-510e-9db2-e9eca9345546
+
+	column Year
+		dataType: int64
+		isKey
+		formatString: 0
+		lineageTag: 3b97d0ab-2e15-5c8c-a758-9032826f5640
+		summarizeBy: none
+		sourceColumn: year
+
+		annotation SummarizationSetBy = Automatic
+
+	column Decade
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: d9663815-24a5-5837-9d15-df0153f0aca2
+		summarizeBy: none
+		sourceColumn: decade
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Decade Name'
+		dataType: string
+		lineageTag: 9fdc5049-6150-5b08-955a-bacfb302f7ae
+		summarizeBy: none
+		sourceColumn: decade_name
+		sortByColumn: Decade
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Year = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_year
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

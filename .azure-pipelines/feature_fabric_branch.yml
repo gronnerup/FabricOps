@@ -5,6 +5,13 @@ trigger:
     include:
     - feature/*
 
+parameters:
+  - name: log_level
+    displayName: 'Log level (debug prints every fab command; trace adds API responses)'
+    type: string
+    default: 'info'
+    values: [ 'info', 'debug', 'trace' ]
+
 jobs:
 - job: create_feature
   displayName: 'Create Fabric feature workspaces'
@@ -20,12 +27,22 @@ jobs:
     value: true
   - name: VSO_FORCE_UTF8_OUTPUT
     value: true
+  - name: PIP_CACHE_DIR
+    value: $(Pipeline.Workspace)/.pip
   - group: Fabric_Automation
 
   steps:
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.12'
+
+    - task: Cache@2
+      displayName: 'Cache pip'
+      inputs:
+        key: 'pip | "$(Agent.OS)" | automation/resources/requirements.txt'
+        restoreKeys: |
+          pip | "$(Agent.OS)"
+        path: $(PIP_CACHE_DIR)
 
     - script: |
         python -m pip install --upgrade pip
@@ -39,3 +56,4 @@ jobs:
         TENANT_ID: $(SPN_TENANT_ID)
         CLIENT_ID: $(SPN_CLIENT_ID)
         CLIENT_SECRET: $(SPN_CLIENT_SECRET)
+        FABOPS_LOG_LEVEL: ${{ parameters.log_level }}

@@ -1,0 +1,78 @@
+/// LEGO sets, one row per set number.
+table Set
+	lineageTag: 2d8ae00e-00e2-5b97-8856-b0cab1d47a73
+
+	/// Distinct sets in the current filter context.
+	measure '# Sets' = DISTINCTCOUNT ( 'Set'[Set Number] )
+		formatString: #,##0
+		lineageTag: 49bd7643-e3ff-576c-ad06-cd8fb1d494c0
+
+	/// Average number of inventoried parts per set.
+	measure 'Avg Pieces per Set' = DIVIDE ( [# Parts], [# Sets] )
+		formatString: #,##0.0
+		lineageTag: fa7e3804-f731-5d1c-a200-f0acc75686bf
+
+	/// Rebrickable set identifier, e.g. 75192-1.
+	column 'Set Number'
+		dataType: string
+		isKey
+		lineageTag: ce5f7949-ebd0-5438-a50d-a4b75ea69edf
+		summarizeBy: none
+		sourceColumn: set_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Set Name'
+		dataType: string
+		lineageTag: 90ce61e6-c7ea-5d0d-b645-4f4578a7bdb2
+		summarizeBy: none
+		sourceColumn: set_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 8f7fb918-4927-5dc8-8e85-6282ef028830
+		summarizeBy: none
+		sourceColumn: year
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Theme Id'
+		dataType: int64
+		isHidden
+		lineageTag: f3025fc7-fffa-5c2d-b0b9-cd564d07c336
+		summarizeBy: none
+		sourceColumn: theme_id
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Denormalised for convenience; use the Theme table for grouping.
+	column 'Theme Name'
+		dataType: string
+		isHidden
+		lineageTag: f7298ef8-4129-5358-abbd-c1401c8b8288
+		summarizeBy: none
+		sourceColumn: theme_name
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Piece count as printed on the box.
+	column 'Piece Count'
+		dataType: int64
+		formatString: #,##0
+		lineageTag: c9862e1f-3267-5a3a-839d-d8c0a60391ff
+		summarizeBy: sum
+		sourceColumn: num_parts
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Set = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_set
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

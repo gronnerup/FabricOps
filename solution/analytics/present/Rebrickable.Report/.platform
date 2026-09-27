@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Rebrickable",
+    "description": "One-page overview of the Rebrickable LEGO dataset"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "8a4c1f02-3b7d-5e19-9c48-2f6ad0e7b513"
+  }
+}

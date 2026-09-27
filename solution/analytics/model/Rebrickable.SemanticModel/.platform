@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Rebrickable",
+    "description": "Direct Lake on OneLake model over the Curated lakehouse"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1956b2a7-45d6-5a47-9132-fe56d8bb0f6c"
+  }
+}

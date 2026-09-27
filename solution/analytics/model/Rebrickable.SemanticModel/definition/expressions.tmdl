@@ -1,0 +1,9 @@
+/// Direct Lake on OneLake source: the Curated lakehouse.
+expression DatabaseQuery =
+		let
+		    Source = AzureStorage.DataLake("https://onelake.dfs.fabric.microsoft.com/00000000-0000-0000-0000-00000000a001/00000000-0000-0000-0000-00000000a002")
+		in
+		    Source
+	lineageTag: 477872f0-3f15-5264-86a1-d0b15ac3b1c8
+
+	annotation PBI_IncludeFutureArtifacts = False

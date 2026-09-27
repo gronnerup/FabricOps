@@ -1,0 +1,80 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "Ingest",
+        "description": "Download the Rebrickable CSVs and land them as Delta tables in Landing.",
+        "type": "TridentNotebook",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "00000000-0000-0000-0000-00000000a006",
+          "workspaceId": "00000000-0000-0000-0000-00000000a004",
+          "sessionTag": "FabricOps_Demo"
+        },
+        "state": "Inactive",
+        "onInactiveMarkAs": "Succeeded"
+      },
+      {
+        "name": "Base",
+        "description": "Conform types, deduplicate to the latest inventory and flatten the theme hierarchy.",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "Ingest",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "00000000-0000-0000-0000-00000000a007",
+          "workspaceId": "00000000-0000-0000-0000-00000000a005",
+          "sessionTag": "FabricOps_Demo"
+        },
+        "state": "Inactive",
+        "onInactiveMarkAs": "Succeeded"
+      },
+      {
+        "name": "Curated",
+        "description": "Build the star schema in Curated and refresh the SQL analytics endpoint.",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "Base",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "00000000-0000-0000-0000-00000000a008",
+          "workspaceId": "00000000-0000-0000-0000-00000000a005",
+          "sessionTag": "FabricOps_Demo"
+        },
+        "state": "Inactive",
+        "onInactiveMarkAs": "Succeeded"
+      }
+    ]
+  }
+}

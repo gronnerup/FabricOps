@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Rebrickable_Base",
+    "description": "Conforms Landing into Base: typing, booleans, de-duplication, latest inventory version, flattened theme hierarchy"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "4ced32cc-37cc-5c28-8940-e042109ac85d"
+  }
+}

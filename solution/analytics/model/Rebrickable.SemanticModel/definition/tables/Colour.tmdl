@@ -1,0 +1,47 @@
+/// Brick colours as published by Rebrickable.
+table Colour
+	lineageTag: 23f7b803-af52-5414-933c-46e0895bd094
+
+	column 'Colour Id'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: afc95bfd-53eb-5171-9d56-7a9995caea74
+		summarizeBy: none
+		sourceColumn: colour_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Colour Name'
+		dataType: string
+		lineageTag: be1cc865-e52f-5daf-bcc6-86b68378c521
+		summarizeBy: none
+		sourceColumn: colour_name
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The colour's own hex value - use it for conditional formatting so a chart is coloured in the brick's actual colour.
+	column 'Colour Hex'
+		dataType: string
+		lineageTag: a196b978-b056-5244-b84d-08f1b8864868
+		summarizeBy: none
+		sourceColumn: colour_hex
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Is Transparent'
+		dataType: boolean
+		lineageTag: 2b45ad33-7dd4-552b-8921-a04942989562
+		summarizeBy: none
+		sourceColumn: is_transparent
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Colour = entity
+		mode: directLake
+		source
+			schemaName: dbo
+			entityName: dim_colour
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
