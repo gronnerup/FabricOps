@@ -169,6 +169,7 @@ class FabricCli:
     ):
         self.log = log or RunLog.from_env()
         self.executable = executable or os.environ.get("FABOPS_FAB_BIN", "fab")
+        self._principal_id: str | None = None   # None = not looked up yet; "" = unknown
         self.dry_run = dry_run
         self.env = env
         self.default_timeout = default_timeout
@@ -401,6 +402,28 @@ class FabricCli:
 
     def acl_set(self, path: object, identity: str, role: str) -> CliResult:
         return self.invoke(["acl", "set", str(path), "-I", identity, "-R", role.lower(), "-f"], mutating=True)
+
+    def acl_rm(self, path: object, identity: str) -> CliResult:
+        return self.invoke(["acl", "rm", str(path), "-I", identity, "-f"], mutating=True)
+
+    def current_principal_id(self) -> str | None:
+        """The object id of the identity this CLI is signed in as, or None.
+
+        Read once per process. Strict permissions need it: Fabric makes whoever creates a
+        workspace its admin, that assignment is never in a recipe, and removing it would
+        lock the next run out. None means "do not know", and the caller must treat that as
+        "remove nothing".
+        """
+        if self._principal_id is not None:
+            return self._principal_id or None
+        try:
+            result = self.invoke(["auth", "status"], expect_json=True, check=False)
+            payload = result.json(default={}) if result.ok else {}
+        except FabricCliError:
+            payload = {}
+        principal = str((payload or {}).get("principal_id") or "").strip()
+        self._principal_id = principal   # "" caches a failed lookup too
+        return principal or None
 
     def config_set(self, key: str, value: str) -> CliResult:
         return self.invoke(["config", "set", key, value], mutating=False)

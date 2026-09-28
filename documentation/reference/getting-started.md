@@ -296,7 +296,8 @@ python -m fabricops plan --environment prd --check   # exit 3 when the tenant ha
 ```
 
 A drift check is a dry run read differently, so it cannot disagree with what a real run
-would do. Bare `plan` stays offline, so reviewing a recipe change in a PR needs no
+would do. Role assignments the recipe does not declare show up there too: kept under
+`permissions.mode: additive`, removed under `strict` (see [recipes.md](recipes.md#permissions)). Bare `plan` stays offline, so reviewing a recipe change in a PR needs no
 credentials.
 
 ## Feature branches

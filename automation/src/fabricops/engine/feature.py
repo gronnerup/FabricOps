@@ -15,7 +15,8 @@ from typing import Any
 from ..errors import RecipeError
 from ..recipe import Recipe
 from . import inventory
-from .actions import AssignRole, CreateWorkspace, SetProperties
+from .actions import AssignRole, CreateWorkspace, ReconcileRoles, SetProperties
+from .permissions import resolve_mode, split_permissions
 from .git import ConnectGit, RegisterWorkspaceRelation
 from .plan import Plan, _references_in, order
 from .storage import DropFeatureSchema, configured_lakehouses
@@ -184,10 +185,12 @@ def build_feature_plan(
             )
 
         index = 0
-        for role, principals in (defaults.get("permissions") or {}).items():
+        role_ids: list[str] = []
+        for role, principals in split_permissions(defaults.get("permissions"))[1].items():
             for principal in principals or []:
                 if not principal.get("id"):
                     continue
+                role_ids.append(f"role:{layer}:{role}:{index}")
                 actions.append(
                     AssignRole(
                         id=f"role:{layer}:{role}:{index}",
@@ -231,6 +234,22 @@ def build_feature_plan(
                     advisory=True,
                 )
             )
+
+        if developer_object_id and _is_object_id(developer_object_id):
+            role_ids.append(f"role:{layer}:developer")
+        # The feature recipe has a mode of its own and does not inherit the platform's:
+        # feature workspaces are short-lived and people do add colleagues to them by hand.
+        actions.append(
+            ReconcileRoles(
+                id=f"roles:{layer}",
+                kind="roles",
+                layer=layer,
+                workspace=workspace,
+                mode=resolve_mode(defaults.get("permissions"), definition.get("permissions")),
+                declared=tuple(role_ids),
+                depends_on=(workspace_action.id, *role_ids),
+            )
+        )
 
         git_node = {**(defaults.get("git") or {}), **(definition.get("git") or {})}
         if git_node.get("directory") and git_node.get("provider"):

@@ -81,7 +81,7 @@ NODES: dict[str, Node] = {
             _f("deploy", dict, "Default release policy for every layer.", node="deploy"),
         ),
     ),
-    "permissions": Node("permissions", (), free_form=True, description="Role name -> list of principals."),
+    "permissions": Node("permissions", (), free_form=True, description="Role name -> list of principals, plus `mode: additive | strict`."),
     "properties": Node("properties", (), free_form=True, description="JSON path -> value, applied with `fab set`."),
     "git": Node(
         "git",
@@ -347,6 +347,14 @@ def _validate_node(node: Any, spec: Node, path: str, problems: list[str], warnin
 def _validate_free_form_child(key: str, value: Any, spec: Node, path: str, problems: list[str], warnings: list[str]) -> None:
     if spec.name == "layers" and isinstance(value, dict):
         _validate_node(value, NODES["layer"], path, problems, warnings)
+    elif spec.name == "permissions":
+        # One policy key lives among the role names: `mode`. Everything else is a role
+        # with a list of principals.
+        if key == "mode":
+            if not isinstance(value, str) or value.lower() not in ("additive", "strict"):
+                problems.append(f"{path}: expected one of additive, strict, got {value!r}")
+        elif not isinstance(value, list):
+            problems.append(f"{path}: expected a list of principals for role {key!r}, got {type(value).__name__}")
 
 
 def _validate_field(spec: Field, value: Any, path: str, problems: list[str], warnings: list[str]) -> None:
