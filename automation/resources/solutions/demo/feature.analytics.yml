@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=../../schemas/solution.schema.json
 layers:
   Model: {}
   Present: {}

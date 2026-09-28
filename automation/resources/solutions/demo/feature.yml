@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=../../schemas/solution.schema.json
 display_name_pattern: '*{feature_name} ({layer_name})'
 defaults:
   capacity: your-capacity-name

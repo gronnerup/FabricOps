@@ -20,7 +20,6 @@ substitution, which is the fastest way to answer "why did it do that".
 ## Shape
 
 ```yaml
-# yaml-language-server: $schema=../schemas/solution.schema.json
 apiVersion: fabricops/v1
 kind: Platform
 metadata:
