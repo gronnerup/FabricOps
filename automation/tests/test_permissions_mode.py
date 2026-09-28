@@ -16,7 +16,7 @@ from fabricops.engine.actions import ReconcileRoles
 from fabricops.engine.feature import build_feature_plan
 from fabricops.engine.permissions import resolve_mode, split_permissions
 from fabricops.errors import RecipeError
-from fabricops.fabric.cli import NO_RETRY, FabricCli
+from fabricops.fabric.cli import NO_RETRY, FabricCli, _principal_from_auth_status
 from fabricops.obs.logging import Level, RunLog
 from fabricops.recipe import Recipe
 from fabricops.recipe.schema import validate
@@ -125,6 +125,41 @@ class FeaturePlanTests(unittest.TestCase):
         self.assertEqual(set(action.declared), {"role:Prepare:Admin:0", "role:Prepare:developer"})
 
 
+# What `fab auth status --output_format json` really prints (fab 1.7): a status line
+# before the JSON, and the fields wrapped as result.data[0].
+REAL_AUTH_STATUS = """\u2713 Logged in to app.fabric.microsoft.com
+{
+    "timestamp": "2026-09-28T10:36:35.273409Z",
+    "status": "Success",
+    "command": "auth",
+    "result": {
+        "data": [
+            {
+                "logged_in": true,
+                "account": "N/A",
+                "principal_id": "%s",
+                "tenant_id": "693f4be5-0000-0000-0000-000000000000",
+                "app_id": "5810448d-0000-0000-0000-000000000000",
+                "token_fabric_powerbi": "eyJ0************************************"
+            }
+        ]
+    }
+}
+""" % ME
+
+
+class AuthStatusParsingTests(unittest.TestCase):
+    def test_the_real_shape_with_its_status_line(self):
+        self.assertEqual(_principal_from_auth_status(REAL_AUTH_STATUS), ME)
+
+    def test_a_flat_shape_still_works(self):
+        self.assertEqual(_principal_from_auth_status(json.dumps({"principal_id": ME})), ME)
+
+    def test_not_logged_in_or_garbage_is_unknown(self):
+        self.assertEqual(_principal_from_auth_status("\u2717 Not logged in\n"), "")
+        self.assertEqual(_principal_from_auth_status('{"result": {"data": []}}'), "")
+
+
 # ------------------------------------------------------------------ the tenant side
 class _Buffer:
     def __init__(self):
@@ -156,7 +191,7 @@ class ExecuteTests(unittest.TestCase):
         self.fab.add(["acl rm"], stdout="ok")
         self.fab.add(["get"], stdout="ws-id-1", command="get")
         if me:
-            self.fab.add(["auth status"], stdout=json.dumps({"principal_id": me, "logged_in": True}))
+            self.fab.add(["auth status"], stdout=REAL_AUTH_STATUS.replace(ME, me))
         else:
             self.fab.add(["auth status"], stdout="", returncode=1, stderr="not logged in")
 
@@ -206,6 +241,7 @@ class ExecuteTests(unittest.TestCase):
         self.assertEqual(self.removed(), [])
         self.assertEqual(report.counts.get("skipped"), 1)
         self.assertIn("could not determine the identity", "".join(self.console.lines))
+        self.assertIn("2 not in the recipe kept", "".join(self.console.lines))
 
     def test_strict_dry_run_reports_what_it_would_remove_and_writes_nothing(self):
         self.existing_workspace(self.ACL)

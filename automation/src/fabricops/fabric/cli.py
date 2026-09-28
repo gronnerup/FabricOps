@@ -91,6 +91,27 @@ class CliResult:
             return default
 
 
+
+def _principal_from_auth_status(stdout: str) -> str:
+    """`principal_id` out of `fab auth status --output_format json`.
+
+    The CLI prints a "Logged in to ..." line before the JSON, and wraps the fields as
+    `result.data[0]`. Both are tolerated, and so is a future flat shape.
+    """
+    text = stdout[stdout.find("{"):] if "{" in stdout else ""
+    try:
+        payload = json.loads(text) if text else {}
+    except json.JSONDecodeError:
+        return ""
+    node: Any = payload
+    if isinstance(node, dict) and isinstance(node.get("result"), dict):
+        node = node["result"]
+    if isinstance(node, dict) and isinstance(node.get("data"), list):
+        node = node["data"][0] if node["data"] else {}
+    if not isinstance(node, dict):
+        return ""
+    return str(node.get("principal_id") or "").strip()
+
 @dataclass(frozen=True)
 class ApiResponse:
     status_code: int
@@ -418,10 +439,9 @@ class FabricCli:
             return self._principal_id or None
         try:
             result = self.invoke(["auth", "status"], expect_json=True, check=False)
-            payload = result.json(default={}) if result.ok else {}
+            principal = _principal_from_auth_status(result.stdout) if result.ok else ""
         except FabricCliError:
-            payload = {}
-        principal = str((payload or {}).get("principal_id") or "").strip()
+            principal = ""
         self._principal_id = principal   # "" caches a failed lookup too
         return principal or None
 

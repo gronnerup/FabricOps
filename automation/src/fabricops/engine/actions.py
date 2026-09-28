@@ -306,12 +306,12 @@ class ReconcileRoles(Action):
 
         me = ctx.cli.current_principal_id()
         if not me:
-            ctx.log.warning(
-                f"{self.workspace}: could not determine the identity running this setup, so strict "
-                f"mode removed nothing. {len(extra)} assignment(s) not in the recipe were kept."
+            # Not a warning on the log: that lands in the middle of the progress line. The
+            # result carries it, and the run summary counts the skip.
+            return ActionResult(
+                "skipped", {"removed": [], "kept": [str(e.get("id")) for e in extra]},
+                message=f"could not determine the identity running this setup; {len(extra)} not in the recipe kept, nothing removed",
             )
-            return ActionResult("skipped", {"removed": [], "kept": [str(e.get("id")) for e in extra]},
-                                message="identity of this run unknown; nothing removed")
 
         removable = [e for e in extra if str(e.get("id") or "").casefold() != me.casefold()]
         protected = [e for e in extra if str(e.get("id") or "").casefold() == me.casefold()]
