@@ -215,8 +215,12 @@ class ExecuteTests(unittest.TestCase):
         self.existing_workspace(self.ACL)
         report, ctx, _ = self.setup_with("additive")
         self.assertEqual(self.removed(), [])
-        self.assertEqual(ctx.output("roles:Store", "kept"), [STRANGER, ME])
-        self.assertIn("not in the recipe, kept", "".join(self.console.lines))
+        # The stranger is listed. The identity running the setup is not: it is on every
+        # workspace it created and no recipe names it, so it is not news.
+        self.assertEqual(ctx.output("roles:Store", "kept"), [STRANGER])
+        console = "".join(self.console.lines)
+        self.assertIn("1 not in the recipe, kept: User 22222222", console)
+        self.assertNotIn(ME[:8], console)
         self.assertFalse(report.failures)
 
     def test_strict_removes_the_stranger_and_nobody_else(self):
@@ -225,13 +229,14 @@ class ExecuteTests(unittest.TestCase):
         self.assertEqual(len(self.removed()), 1)
         self.assertIn(STRANGER, self.removed()[0])
         self.assertEqual(ctx.output("roles:Store", "removed"), [STRANGER])
-        self.assertEqual(ctx.output("roles:Store", "kept"), [ME])
+        self.assertEqual(ctx.output("roles:Store", "kept"), [])
 
     def test_strict_never_removes_the_identity_running_the_setup(self):
         self.existing_workspace([{"id": GROUP, "type": "Group", "role": "Admin"}, {"id": ME, "type": "ServicePrincipal", "role": "Admin"}])
         report, ctx, _ = self.setup_with("strict")
         self.assertEqual(self.removed(), [])
-        self.assertEqual(ctx.output("roles:Store", "kept"), [ME])
+        self.assertEqual(ctx.output("roles:Store", "kept"), [])
+        self.assertNotIn("Already exists (", "".join(self.console.lines), "nothing to report, so no message")
         # the workspace, the group's role, and the roles check: all already as declared
         self.assertEqual(report.counts.get("existed"), 3)
 

@@ -290,41 +290,43 @@ class ReconcileRoles(Action):
         path = FabPath.workspace(self.workspace)
         current = ctx.cli.acl_get(path)
         declared = self._declared_principals(ctx)
-        extra = [entry for entry in current if str(entry.get("id") or "").casefold() not in declared]
+        # The identity running this setup is on every workspace it created, and no recipe
+        # lists it. It is not "undeclared" in any useful sense, so it is neither listed nor
+        # removed. When it cannot be determined, additive lists everything (harmless) and
+        # strict removes nothing (safe).
+        me = ctx.cli.current_principal_id()
+        extra = [
+            entry for entry in current
+            if str(entry.get("id") or "").casefold() not in declared
+            and not (me and str(entry.get("id") or "").casefold() == me.casefold())
+        ]
         if not extra:
             return ActionResult("existed", {"removed": [], "kept": []})
 
         def label(entry: dict[str, Any]) -> str:
             return f"{entry.get('type') or 'principal'} {str(entry.get('id'))[:8]} ({entry.get('role')})"
 
+        kept = [str(e.get("id")) for e in extra]
         if self.mode != "strict":
-            kept = [str(e.get("id")) for e in extra]
             return ActionResult(
                 "existed", {"removed": [], "kept": kept},
                 message=f"{len(extra)} not in the recipe, kept: " + ", ".join(label(e) for e in extra),
             )
 
-        me = ctx.cli.current_principal_id()
         if not me:
             # Not a warning on the log: that lands in the middle of the progress line. The
             # result carries it, and the run summary counts the skip.
             return ActionResult(
-                "skipped", {"removed": [], "kept": [str(e.get("id")) for e in extra]},
+                "skipped", {"removed": [], "kept": kept},
                 message=f"could not determine the identity running this setup; {len(extra)} not in the recipe kept, nothing removed",
             )
 
-        removable = [e for e in extra if str(e.get("id") or "").casefold() != me.casefold()]
-        protected = [e for e in extra if str(e.get("id") or "").casefold() == me.casefold()]
-        if not removable:
-            return ActionResult("existed", {"removed": [], "kept": [str(e.get("id")) for e in protected]},
-                                message="only this run's own identity is undeclared; kept")
-
-        for entry in removable:
+        for entry in extra:
             ctx.cli.acl_rm(path, str(entry.get("id")))
         return ActionResult(
             "updated",
-            {"removed": [str(e.get("id")) for e in removable], "kept": [str(e.get("id")) for e in protected]},
-            message=("would remove " if ctx.dry_run else "removed ") + ", ".join(label(e) for e in removable),
+            {"removed": kept, "kept": []},
+            message=("would remove " if ctx.dry_run else "removed ") + ", ".join(label(e) for e in extra),
         )
 
 
