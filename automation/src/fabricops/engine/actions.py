@@ -250,6 +250,86 @@ class AssignRole(Action):
         return ActionResult("updated", {"principal_id": principal, "role": self.role})
 
 
+# ------------------------------------------------------------------ roles: the rest
+@dataclass
+class ReconcileRoles(Action):
+    """What to do with role assignments the recipe does not declare.
+
+    `additive` reads and reports them, and keeps them. `strict` removes them, because in
+    strict mode the recipe is the whole truth. Two principals are never removed: the ones
+    the recipe declares (resolved from the role actions this depends on), and the identity
+    running this setup, which Fabric made admin when it created the workspace and which
+    is not in any recipe. If that identity cannot be determined, strict removes nothing
+    and says so - a run that cleans too little beats a run that locks itself out.
+    """
+
+    workspace: str = ""
+    mode: str = "additive"
+    declared: tuple[str, ...] = ()   # role action ids whose principal_id output is declared
+
+    def describe(self) -> str:
+        return "Roles not in the recipe" + (" (strict: removed)" if self.mode == "strict" else " (additive: kept)")
+
+    def detail(self) -> str:
+        return f"mode={self.mode}"
+
+    def _declared_principals(self, ctx: "RunContext") -> set[str]:
+        principals: set[str] = set()
+        for action_id in self.declared:
+            principal = ctx.output(action_id, "principal_id")
+            if principal and not str(principal).startswith("<"):
+                principals.add(str(principal).casefold())
+        return principals
+
+    def apply(self, ctx: "RunContext") -> ActionResult:
+        if self.layer and ctx.workspace_was_created(self.layer):
+            # Nothing can be undeclared on a workspace this run just made: it holds the
+            # roles this run assigned and the identity that created it. Reading would only
+            # add a call per layer to every first run.
+            return ActionResult("existed", {"removed": [], "kept": []})
+        path = FabPath.workspace(self.workspace)
+        current = ctx.cli.acl_get(path)
+        declared = self._declared_principals(ctx)
+        # The identity running this setup is on every workspace it created, and no recipe
+        # lists it. It is not "undeclared" in any useful sense, so it is neither listed nor
+        # removed. When it cannot be determined, additive lists everything (harmless) and
+        # strict removes nothing (safe).
+        me = ctx.cli.current_principal_id()
+        extra = [
+            entry for entry in current
+            if str(entry.get("id") or "").casefold() not in declared
+            and not (me and str(entry.get("id") or "").casefold() == me.casefold())
+        ]
+        if not extra:
+            return ActionResult("existed", {"removed": [], "kept": []})
+
+        def label(entry: dict[str, Any]) -> str:
+            return f"{entry.get('type') or 'principal'} {str(entry.get('id'))[:8]} ({entry.get('role')})"
+
+        kept = [str(e.get("id")) for e in extra]
+        if self.mode != "strict":
+            return ActionResult(
+                "existed", {"removed": [], "kept": kept},
+                message=f"{len(extra)} not in the recipe, kept: " + ", ".join(label(e) for e in extra),
+            )
+
+        if not me:
+            # Not a warning on the log: that lands in the middle of the progress line. The
+            # result carries it, and the run summary counts the skip.
+            return ActionResult(
+                "skipped", {"removed": [], "kept": kept},
+                message=f"could not determine the identity running this setup; {len(extra)} not in the recipe kept, nothing removed",
+            )
+
+        for entry in extra:
+            ctx.cli.acl_rm(path, str(entry.get("id")))
+        return ActionResult(
+            "updated",
+            {"removed": kept, "kept": []},
+            message=("would remove " if ctx.dry_run else "removed ") + ", ".join(label(e) for e in extra),
+        )
+
+
 # -------------------------------------------------------------------------- item
 @dataclass
 class CreateItem(Action):

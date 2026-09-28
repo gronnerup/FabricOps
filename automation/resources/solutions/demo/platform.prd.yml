@@ -2,6 +2,7 @@ defaults:
   merge_type: 2
   environment: prd
   permissions:
+    mode: strict              # prod follows the recipe to the letter; dev stays additive
     Admin:
     - type: Group
       id: 11111111-1111-1111-1111-111111111111

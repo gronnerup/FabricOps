@@ -104,6 +104,42 @@ Overlay order: `defaults` → base recipe → environment overlay → environmen
 The old `merge_type: 0|1|2` is accepted permanently and mapped to `keep` / `replace` /
 `merge-by-name`.
 
+## Permissions
+
+```yaml
+defaults:
+  permissions:
+    mode: additive              # or strict. Optional; additive is the default.
+    Admin:
+      - { type: Group, id: "11111111-1111-1111-1111-111111111111" }
+    Member:
+      - { type: User, id: "22222222-2222-2222-2222-222222222222" }
+      - { type: WorkspaceIdentity, name: "Confidence - Orchestrate [{environment}]" }
+```
+
+Roles are Fabric's (`Admin`, `Member`, `Contributor`, `Viewer`); case does not matter.
+Principal types are `Group`, `User`, `ServicePrincipal` and `WorkspaceIdentity`, where
+`name` is the workspace whose managed identity gets the role. A layer's `permissions`
+are added to the defaults, one entry per principal per role.
+
+`mode` decides what happens to role assignments the recipe does **not** declare:
+
+| Mode | Declared roles | Undeclared roles |
+| --- | --- | --- |
+| `additive` (default) | set | kept, and listed in the plan |
+| `strict` | set | removed on the next run |
+
+A layer's `mode` overrides the defaults', and an overlay can set it, so `strict` in
+`platform.prd.yml` and nothing in `platform.dev.yml` gives a prod that follows the recipe
+to the letter and a dev where people may still add a colleague by hand. Two principals are
+never removed: the ones the recipe declares, and the identity running `setup`, which
+Fabric made admin when it created the workspace and which no recipe lists. If that
+identity cannot be determined (`fab auth status` did not return it), strict removes
+nothing and says so. `--dry-run` lists what a strict run would remove.
+
+Feature recipes have a `mode` of their own, default `additive`, and do not inherit the
+platform's: feature workspaces are short-lived, and people do add colleagues to them.
+
 ## Connections
 
 ```yaml

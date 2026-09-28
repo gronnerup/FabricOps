@@ -74,7 +74,8 @@ class IdempotencyTests(ExecutorTestCase):
 
         report, _manifest, _ctx = self.run_plan(make_recipe({"Store": {}}))
 
-        self.assertEqual(report.counts.get("existed"), 1)
+        # The workspace, and the roles check that found nothing undeclared.
+        self.assertEqual(report.counts.get("existed"), 2)
         self.assertFalse(any(command.startswith("mkdir") for command in self.commands()))
 
     def test_properties_are_only_written_when_different(self):

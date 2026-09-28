@@ -14,9 +14,11 @@ from typing import Any, Iterable
 from ..errors import RecipeError
 from ..recipe import Recipe
 from . import definitions
+from .permissions import resolve_mode, split_permissions
 from .actions import (
     Action,
     AssignRole,
+    ReconcileRoles,
     CreateFolder,
     CreateItem,
     CreateWorkspace,
@@ -120,7 +122,7 @@ def build_plan(recipe: Recipe, *, repository_root: pathlib.Path | str = ".") -> 
     repository_root = pathlib.Path(repository_root)
     defaults = recipe.defaults
     default_capacity = defaults.get("capacity")
-    default_permissions = defaults.get("permissions") or {}
+    _default_mode, default_permissions = split_permissions(defaults.get("permissions"))
     default_properties = defaults.get("properties") or {}
 
     identity_actions: dict[str, str] = {}  # workspace display name -> identity action id
@@ -247,9 +249,25 @@ def build_plan(recipe: Recipe, *, repository_root: pathlib.Path | str = ".") -> 
                 )
             )
 
-        for role, principals in _merged_permissions(default_permissions, definition.get("permissions")).items():
+        _layer_mode, layer_permissions = split_permissions(definition.get("permissions"))
+        role_ids: list[str] = []
+        for role, principals in _merged_permissions(default_permissions, layer_permissions).items():
             for index, principal in enumerate(principals):
-                actions.append(_role_action(layer, workspace, role, principal, index, workspace_action_id, identity_actions))
+                role_action = _role_action(layer, workspace, role, principal, index, workspace_action_id, identity_actions)
+                role_ids.append(role_action.id)
+                actions.append(role_action)
+        # After every declared role is in place: what about the ones that are not declared?
+        actions.append(
+            ReconcileRoles(
+                id=f"roles:{layer}",
+                kind="roles",
+                layer=layer,
+                workspace=workspace,
+                mode=resolve_mode(defaults.get("permissions"), definition.get("permissions")),
+                declared=tuple(role_ids),
+                depends_on=(workspace_action_id, *role_ids),
+            )
+        )
 
         folder_actions: dict[str, str] = {}
         for folder in _folders(definition.get("items") or []):
@@ -308,7 +326,7 @@ def build_plan(recipe: Recipe, *, repository_root: pathlib.Path | str = ".") -> 
                         connection_name=str(connection.get("name")),
                         payload_kind="sql",
                         source_action=item_action.id,
-                        roles=connection_roles(_merged_permissions(default_permissions, definition.get("permissions"))),
+                        roles=connection_roles(_merged_permissions(default_permissions, split_permissions(definition.get("permissions"))[1])),
                         depends_on=(item_action.id,),
                     )
                 )
