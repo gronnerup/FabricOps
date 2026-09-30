@@ -341,9 +341,8 @@ if wanted("bridge_member_set"):
 # CELL ********************
 
 if refresh_endpoint and target_workspace_id:
-    lakehouse_id = fabric.resolve_item_id(
-        item=target_lakehouse_name, item_type="Lakehouse", workspace=target_workspace_id
-    )
+    # Positional: sempy renamed these parameters between runtimes; the order did not change.
+    lakehouse_id = fabric.resolve_item_id(target_lakehouse_name, "Lakehouse", target_workspace_id)
     details = invoke_api(
         f"https://api.fabric.microsoft.com/v1/workspaces/{target_workspace_id}/lakehouses/{lakehouse_id}",
     )

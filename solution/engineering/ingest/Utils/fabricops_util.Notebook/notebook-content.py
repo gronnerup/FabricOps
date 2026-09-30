@@ -76,7 +76,9 @@ def lakehouse_tables(name: str, workspace_id: str | None = None, schema: str | N
     """
     if not workspace_id:
         return f"Tables/{schema}" if schema else "Tables"
-    item_id = fabric.resolve_item_id(item=name, item_type="Lakehouse", workspace=workspace_id)
+    # Positional on purpose: sempy renamed these parameters between runtimes (item_name,
+    # type -> item, item_type) and two runtimes can be live at once. The order never changed.
+    item_id = fabric.resolve_item_id(name, "Lakehouse", workspace_id)
     root = f"abfss://{workspace_id}@onelake.dfs.fabric.microsoft.com/{item_id}/Tables"
     return f"{root}/{schema}" if schema else root
 
