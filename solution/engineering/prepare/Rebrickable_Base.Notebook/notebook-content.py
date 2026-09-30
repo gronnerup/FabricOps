@@ -268,15 +268,19 @@ if wanted("themes"):
     )
     parents = themes.select(F.col("id").alias("p_id"), F.col("parent_id").alias("p_parent_id"))
 
-    for _ in range(MAX_DEPTH):
+    # Both sides descend from the same `themes` DataFrame, and the join repeats. Spark 4
+    # refuses to guess which side a column belongs to in that situation, so each pass
+    # aliases its two sides and names columns through the alias.
+    for step in range(MAX_DEPTH):
+        c, p = f"c{step}", f"p{step}"
         climb = (
-            climb.join(parents, climb["ancestor_parent_id"] == parents["p_id"], "left")
+            climb.alias(c).join(parents.alias(p), F.col(f"{c}.ancestor_parent_id") == F.col(f"{p}.p_id"), "left")
             .select(
-                climb["id"],
+                F.col(f"{c}.id").alias("id"),
                 # step up when there is a parent, otherwise stay put: the root is a fixed point
-                F.coalesce(parents["p_id"], climb["ancestor_id"]).alias("ancestor_id"),
-                parents["p_parent_id"].alias("ancestor_parent_id"),
-                F.when(parents["p_id"].isNotNull(), climb["level"] + 1).otherwise(climb["level"]).alias("level"),
+                F.coalesce(F.col(f"{p}.p_id"), F.col(f"{c}.ancestor_id")).alias("ancestor_id"),
+                F.col(f"{p}.p_parent_id").alias("ancestor_parent_id"),
+                F.when(F.col(f"{p}.p_id").isNotNull(), F.col(f"{c}.level") + 1).otherwise(F.col(f"{c}.level")).alias("level"),
             )
         )
 
